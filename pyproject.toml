@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cccpy"
+authors = [{ name = "Ylse Anna de Vries", email = "yad2@hi.is" }, { name = "Gabriele Benedetti", email = "gab28@hi.is" }]
+description = "Python wrapper for the Julia package CCC"
+readme = "README.md"
+requires-python = ">=3.11.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License ::MIT",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python",
+    "Operating System :: POSIX :: Linux",
+]
+
+dynamic = ['version']
+
+
+[project.urls]
+Homepage = "https://github.com/ylseanna/RE-Match"
+Issues = "https://github.com/ylseanna/RE-Match/issues"
+
+[tool.setuptools.dynamic]
+version = { attr = 'cccpy.__version__' }
+
+
+[tool.setuptools.packages.find]
+include = ['cccpy', 'cccpy.*']
+
+[tool.setuptools.package-data]
+"cccpy" = ['**/*.ini', '**/*.jl', '**/*.inp_template', '**/scripts/*']
+
