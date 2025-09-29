@@ -2,7 +2,7 @@ __version__ = "0.1.0"
 __author__ = "Ylse Anna de Vries <yad2@hi.is>, Gabriele Benedetti <gab28@hi.is>"
 
 from .core import ncc  # noqa: F401
-from .interface import cross_correlate_seismic_events  # noqa: F401
+from .seismic import cross_correlate_seismic_events  # noqa: F401
 
 from . import signals  # noqa: F401
 
