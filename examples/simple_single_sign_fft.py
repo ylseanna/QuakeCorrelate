@@ -1,25 +1,7 @@
-from os import environ
 import numpy as np
-from matplotlib.pyplot import figure, show
+from matplotlib.pyplot import figure
 
-from juliacall import Main as jl
-from juliacall import newmodule
-from juliacall import Pkg as jlPkg
-
-from dotenv import load_dotenv
-
-load_dotenv()
-
-# set julia environments
-if environ.get("CCC_TYPE") == "path":
-    # activate environment
-    jlPkg.activate(environ.get("CCC_PATH"))
-
-    # activate package
-    newmodule(environ.get("CCC_PATH"))
-
-
-jl.seval("using CCC")
+import cccpy
 
 # template
 vals = np.arange(0, 20, 0.1)
@@ -43,15 +25,16 @@ rs = np.zeros(len(signal_vec))
 lags = np.zeros(len(signal_vec))
 corrgrams = np.zeros((len(signal_vec), len(signal_1)))
 
-# call julia
-jl.CCC.ncc(template, signal_vec, rs, lags, corrgrams, method="frequency")
+# run cross correlation
+results, lags, corrgrams = cccpy.ncc(template, signal_vec, method="frequency", return_corrgrams=True)
 
 # plot
 
-fig = figure(figsize=(6,10))
+fig = figure(figsize=(6,6))
 
 #1
 fr1 = fig.add_subplot(3, 1, 1)
+fr1.margins(x=0)
 fr1b = fr1.twinx()
 
 fr1.plot(vals_template, template, color="black", linestyle="dashed")
@@ -60,6 +43,7 @@ fr1b.plot(vals, corrgrams[0], color="purple")
 
 # 3
 fr2 = fig.add_subplot(3, 1, 2)
+fr2.margins(x=0)
 fr2b = fr2.twinx()
 
 fr2.plot(vals_template, template, color="black", linestyle="dashed")
@@ -68,13 +52,14 @@ fr2b.plot(vals, corrgrams[1], color="purple")
 
 # 3
 fr3 = fig.add_subplot(3, 1, 3)
+fr3.margins(x=0)
 fr3b = fr3.twinx()
 
 fr3.plot(vals_template, template, color="black", linestyle="dashed")
 fr3.plot(vals, signal_3, color="red")
 fr3b.plot(vals, corrgrams[2], color="purple")
 
-fig.savefig("simple_single_sign_fft.png")
+fig.savefig("simple_single_sign_fft.png", bbox_inches='tight')
 
 # results
 print(rs)

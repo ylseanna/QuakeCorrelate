@@ -46,24 +46,27 @@ lags = np.zeros(len(signal_vec))
 jl.CCC.ncc(template, signal_vec, rs, lags)
 
 # plot
-fig = figure(figsize=(6,10))
+fig = figure(figsize=(7,7))
 
 fr1 = fig.add_subplot(3, 1, 1)
+fr1.margins(x=0)
 
 fr1.plot(vals_template, template, color="black", linestyle="dashed")
 fr1.plot(vals, signal_1, color="red")
 
 fr2 = fig.add_subplot(3, 1, 2)
+fr2.margins(x=0)
 
 fr2.plot(vals_template, template, color="black", linestyle="dashed")
 fr2.plot(vals, signal_2, color="red")
 
 fr3 = fig.add_subplot(3, 1, 3)
+fr3.margins(x=0)
 
 fr3.plot(vals_template, template, color="black", linestyle="dashed")
 fr3.plot(vals, signal_3, color="red")
 
 # results
-fig.savefig("simple_single_sign.png")
+fig.savefig("simple_single_sign.png", bbox_inches='tight')
 print(rs)
 print(lags)
