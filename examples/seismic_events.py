@@ -10,8 +10,8 @@ stream_dict = dict()
 
 for mseed_path in sorted(
     Path(
-        "/home/yadevries/PhD/areas/Bardarbunga/rematch_pipeline_instances/full_catalog_4/detections/2017/163"
-    ).glob("*/**/*_st_cc.ms")
+        "<path>"
+    ).glob("id")
 ):
     event_id = mseed_path.parent.stem
     stream = read(mseed_path, format="MSEED")

@@ -1,1 +1,1 @@
-from .correlations_file import Correlations
+from .correlation_file import CorrelationFile  # noqa: F401

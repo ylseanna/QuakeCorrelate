@@ -1,16 +1,18 @@
 from obspy import Stream
-from typing import Literal, Dict
+from typing import Literal, Dict, List
 from pathlib import Path
 import numpy as np
 
-from ..core.io import Correlations
+from .seismic_correlator import SeismicCorrelator
+
 
 def cross_correlate_seismic_events(
     stream_dict: Dict[str, Stream],
-    outfile: str | Path | None = None,
+    corr_file: str | Path | None = None,
     method: Literal["time", "frequency"] = "time",
     platform: Literal["gpu", "cpu"] = "gpu",
     stationfile: str | Path | None = None,
+    channels: List[str] | None = None,
 ):
     """Function to calculate cross correlations for seismic events, on a per station, per component basis.
 
@@ -24,8 +26,15 @@ def cross_correlate_seismic_events(
         platform ([&quot;gpu&quot;, &quot;cpu&quot;], optional):
             Whether to pass correlations to the gpu or cpu. Defaults to "gpu".
         stationfile (str, Path, None, optional):
-            Station file can be passed to minimize pre-inventorizing which can get slow if many streams are provided.
+            Station file can be passed to minimize pre-inventorizing - which can get slow if many streams are provided - or filter which channels to process.
+        channels (List[str]), None, optional):
+            Channel names (e.g. ["EHN", "EHE", "EHZ]) can be passed to minimize pre-inventorizing - which can get slow if many streams are provided - or filter which channels to process.
     """
+    # manage args
+    if corr_file:
+        corr_file = Path(corr_file)
+    else:
+        corr_file = Path("./correlation.sqlite")
 
     # organise data
     if not stationfile:
@@ -33,12 +42,32 @@ def cross_correlate_seismic_events(
             np.concatenate(
                 [
                     [trace.stats.station for trace in stream.traces]
-                    for eventid, stream in stream_dict.items()
+                    for stream in stream_dict.values()
                 ]
             )
         )
         # find all the unique sorted station ids among all the traces of all the streams
 
+    if not channels:
+        channels = np.unique(
+            np.concatenate(
+                [
+                    [trace.stats.channel for trace in stream.traces]
+                    for stream in stream_dict.values()
+                ]
+            )
+        )
+        # find all the unique sorted channel ids among all the traces of all the streams
+
     print(stations)
-    
-    Correlations(filename="correlation.sqlite", seismic_data=True)
+    print(channels)
+
+    correlator = SeismicCorrelator(corr_file=corr_file, overwrite_corr_file=True)
+
+    correlator.correlation_file.write_stations(stations)
+
+    correlator.correlation_file.write_channels(channels)
+
+    correlator.correlation_file.write_streams(stream_dict)
+
+    correlator.cross_correlate(stream_dict)
