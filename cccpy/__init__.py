@@ -27,5 +27,3 @@ if environ.get("CCC_TYPE") == "path":
 
 
 jl.seval("using CCC")
-
-jl.seval("using CCC.Signals")
