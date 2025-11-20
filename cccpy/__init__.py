@@ -22,10 +22,12 @@ if environ.get("CCC_TYPE") == "path":
     # activate environment
     jlPkg.activate(environ.get("CCC_PATH"))
 
-    jlPkg.add("IntervalArithmetic")
+    # jlPkg.add("IntervalArithmetic")
 
-    # activate package
+    # activate CCC package
     newmodule(environ.get("CCC_PATH"))
 
+    jlPkg.resolve()
 
-jl.seval("using CCC")
+
+    jl.seval("using CCC")

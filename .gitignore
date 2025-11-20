@@ -1,6 +1,9 @@
 # outputs
 *.png
 *.sqlite
+#
+#examples
+examples/test_data
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
