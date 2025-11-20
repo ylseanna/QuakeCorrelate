@@ -22,6 +22,8 @@ if environ.get("CCC_TYPE") == "path":
     # activate environment
     jlPkg.activate(environ.get("CCC_PATH"))
 
+    jlPkg.add("IntervalArithmetic")
+
     # activate package
     newmodule(environ.get("CCC_PATH"))
 
