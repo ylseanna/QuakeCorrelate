@@ -3,23 +3,6 @@ import numpy as np
 from matplotlib.pyplot import figure, show
 
 from juliacall import Main as jl
-from juliacall import newmodule
-from juliacall import Pkg as jlPkg
-
-from dotenv import load_dotenv
-
-load_dotenv()
-
-# set julia environments
-if environ.get("CCC_TYPE") == "path":
-    # activate environment
-    jlPkg.activate(environ.get("CCC_PATH"))
-
-    # activate package
-    newmodule(environ.get("CCC_PATH"))
-
-
-jl.seval("using CCC")
 
 # template
 vals = np.arange(0, 20, 0.1)

@@ -1,18 +1,12 @@
-import numpy as np
-from matplotlib.pyplot import figure
 from pathlib import Path
+from obspy import read
 
 import cccpy
 
-from obspy import read
 
 stream_dict = dict()
 
-for mseed_path in sorted(
-    Path(
-        "<path>"
-    ).glob("id")
-):
+for mseed_path in sorted(Path("./examples/test_data").glob("*/**/*_st_long.ms")):
     event_id = mseed_path.parent.stem
     stream = read(mseed_path, format="MSEED")
 

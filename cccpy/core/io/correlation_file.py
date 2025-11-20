@@ -11,6 +11,7 @@ class CorrelationSlice(TypedDict):
     channel: str | Tuple[int, str]
     events: List[str] | List[Tuple[int, str]]
     excluded_events: List[str] | List[Tuple[int, str]]
+    traces: List[str] | List[Tuple[int, str]]
 
 
 class CorrelationFile:
@@ -264,6 +265,41 @@ class CorrelationFile:
 
         self.connection.commit()
 
+    def write_correlation_matrix(
+        self,
+        corr_matrix: np.ndarray,
+        lag_matrix: np.ndarray,
+        column_trace_ids: List[int],
+        row_trace_ids: List[int],
+    ):
+
+
+        if corr_matrix.shape != (len(column_trace_ids), len(row_trace_ids)):
+            raise ValueError(
+                "Correlation matrix shape and column and row trace ids lengths do not match"
+            )
+
+
+        primary_trace_ids, secondary_trace_ids = np.meshgrid(
+            column_trace_ids, row_trace_ids
+        )
+
+        vars = list(
+            zip(
+                list(primary_trace_ids.reshape(-1)),
+                list(secondary_trace_ids.reshape(-1)),
+                list(corr_matrix.reshape(-1)),
+                list(lag_matrix.reshape(-1)),
+            )
+        )
+        
+        self.cursor.executemany(
+            "INSERT INTO correlations ('primary_trace_id', 'secondary_trace_id', 'correlation_value', 'lag') VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING",
+            vars,
+        )
+        
+        self.connection.commit()
+
     def slice_by_station_and_channel(
         self, with_corr_file_index: bool = True
     ) -> List[CorrelationSlice]:
@@ -295,8 +331,6 @@ class CorrelationFile:
         slice_list = []
 
         for station_id, station in stations:
-            print(station_id)
-            print(station)
             traces = [
                 request
                 for request in self.cursor.execute(
@@ -331,6 +365,7 @@ class CorrelationFile:
                                 if event_tuple[0]
                                 not in [trace[1] for trace in traces_per_channel]
                             ],
+                            "trace_ids" : [trace[0] for trace in traces_per_channel]
                         }
                     )
 

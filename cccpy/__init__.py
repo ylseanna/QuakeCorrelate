@@ -27,7 +27,7 @@ if environ.get("CCC_TYPE") == "path":
     # activate CCC package
     newmodule(environ.get("CCC_PATH"))
 
-    jlPkg.resolve()
+    # jlPkg.resolve()
 
 
     jl.seval("using CCC")
