@@ -56,10 +56,10 @@ class SeismicCorrelator:
                 ]
             ).T
 
-            mat_cpu, lag_cpu = jl.CCC.ncc_cuda(data, data, 128, 128)
-            
-            corr_matrix = np.array(mat_cpu)
-            lag_matrix = np.array(lag_cpu)
+            mat_cpu, lag_cpu = jl.CCC.ncc_cuda(data, data, 128, 256)
+
+            corr_matrix = np.array(mat_cpu).T
+            lag_matrix = np.array(lag_cpu).T
 
             self.correlation_file.write_correlation_matrix(
                 corr_matrix,

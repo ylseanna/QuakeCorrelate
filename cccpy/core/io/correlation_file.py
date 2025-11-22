@@ -273,31 +273,37 @@ class CorrelationFile:
         row_trace_ids: List[int],
     ):
 
-
         if corr_matrix.shape != (len(column_trace_ids), len(row_trace_ids)):
             raise ValueError(
                 "Correlation matrix shape and column and row trace ids lengths do not match"
             )
 
-
         primary_trace_ids, secondary_trace_ids = np.meshgrid(
             column_trace_ids, row_trace_ids
         )
 
-        vars = list(
-            zip(
-                list(primary_trace_ids.reshape(-1)),
-                list(secondary_trace_ids.reshape(-1)),
-                list(corr_matrix.reshape(-1)),
-                list(lag_matrix.reshape(-1)),
+        vars = [
+            (
+                int(primary_trace_id),
+                int(secondary_trace_id),
+                float(corr_value),
+                float(lag_value),
             )
-        )
-        
+            for primary_trace_id, secondary_trace_id, corr_value, lag_value in zip(
+                primary_trace_ids.reshape(-1),
+                secondary_trace_ids.reshape(-1),
+                corr_matrix.reshape(-1),
+                lag_matrix.reshape(-1),
+            )
+        ]
+
+        print(vars[0])
+
         self.cursor.executemany(
             "INSERT INTO correlations ('primary_trace_id', 'secondary_trace_id', 'correlation_value', 'lag') VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING",
             vars,
         )
-        
+
         self.connection.commit()
 
     def slice_by_station_and_channel(
@@ -365,29 +371,62 @@ class CorrelationFile:
                                 if event_tuple[0]
                                 not in [trace[1] for trace in traces_per_channel]
                             ],
-                            "trace_ids" : [trace[0] for trace in traces_per_channel]
+                            "trace_ids": [trace[0] for trace in traces_per_channel],
                         }
                     )
 
         return slice_list
 
-    def get_stations(self, as_df=True):
+    def get_stations(self, as_df=True, include_channels: bool = False):
 
         if not self.is_seismic:
             raise NotImplementedError(
                 "This correlation file is not configured for seismic data"
             )
 
+        # load stations
         stations = [
             request for request in self.cursor.execute("SELECT * FROM stations")
         ]
 
-        if as_df:
-            stations_df = pd.DataFrame.from_records(stations, columns=["index", "name"])
+        if not include_channels:  # exit and return now
+            if as_df:
+                stations_df = pd.DataFrame.from_records(
+                    stations, columns=["index", "name"]
+                )
 
-            return stations_df
+                return stations_df
+            else:
+                return stations
+
+        # load channels
+        channels = self.get_channels(as_df=False)
+
+        station_dict = {}
+
+        station_array = []
+        for station_id, station in stations:
+            station_dict["station"] = (station_id, station)
+
+            traces = [
+                request
+                for request in self.cursor.execute(
+                    f"SELECT * FROM traces WHERE station_id = {station_id}"
+                )
+            ]
+
+            channels_per_station = np.unique([trace[3] for trace in traces])
+
+            station_dict["channels"] = [
+                channel for channel in channels if channel[0] in channels_per_station
+            ]
+
+            station_array.append(station_dict)
+
+        if as_df:
+            raise NotImplementedError
         else:
-            return stations
+            return station_array
 
     def get_channels(self, as_df=True):
 

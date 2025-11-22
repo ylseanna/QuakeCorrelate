@@ -59,6 +59,14 @@ def cross_correlate_seismic_events(
         )
         # find all the unique sorted channel ids among all the traces of all the streams
 
-    correlator = SeismicCorrelator(corr_file=corr_file, overwrite_corr_file=True, stations=stations, channels=channels)
+    correlator = SeismicCorrelator(
+        corr_file=corr_file,
+        overwrite_corr_file=True,
+        stations=stations,
+        channels=channels,
+    )
 
     correlator.cross_correlate(stream_dict)
+
+    # stations
+    print(correlator.correlation_file.get_stations(include_channels=True, as_df=False))
