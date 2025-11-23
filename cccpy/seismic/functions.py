@@ -13,6 +13,7 @@ def cross_correlate_seismic_events(
     platform: Literal["gpu", "cpu"] = "gpu",
     stationfile: str | Path | None = None,
     channels: List[str] | None = None,
+    plot_corr_matrix: bool = False,
 ):
     """Function to calculate cross correlations for seismic events, on a per station, per component basis.
 
@@ -29,6 +30,8 @@ def cross_correlate_seismic_events(
             Station file can be passed to minimize pre-inventorizing - which can get slow if many streams are provided - or filter which channels to process.
         channels (List[str]), None, optional):
             Channel names (e.g. ["EHN", "EHE", "EHZ]) can be passed to minimize pre-inventorizing - which can get slow if many streams are provided - or filter which channels to process.
+        plot_corr_matrix (bool):
+            Determines whether to plot correlation matrices on the go
     """
     # manage args
     if corr_file:
@@ -66,7 +69,7 @@ def cross_correlate_seismic_events(
         channels=channels,
     )
 
-    correlator.cross_correlate(stream_dict)
+    correlator.cross_correlate(stream_dict, plot=plot_corr_matrix)
 
     # stations
     print(correlator.correlation_file.get_stations(include_channels=True, as_df=False))

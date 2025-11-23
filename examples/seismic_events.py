@@ -16,7 +16,7 @@ for mseed_path in sorted(Path("./examples/test_data_bardarbunga_2017").glob("**/
 if stream_dict:
     start = time.time()
 
-    cross_correlate_seismic_events(stream_dict)
+    cross_correlate_seismic_events(stream_dict, plot_corr_matrix=True)
 
     end = time.time()
     print("execution time", (end - start))

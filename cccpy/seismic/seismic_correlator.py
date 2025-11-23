@@ -1,4 +1,3 @@
-
 from pathlib import Path
 from typing import List
 
@@ -7,6 +6,8 @@ import numpy as np
 from ..core.io import CorrelationFile
 
 from ..core.interface import Julia
+
+from matplotlib.pyplot import figure, close
 
 
 class SeismicCorrelator:
@@ -29,7 +30,14 @@ class SeismicCorrelator:
         if channels is not None:
             self.correlation_file.write_channels(channels)
 
-    def cross_correlate(self, stream_dict, shift_len: float = 1):
+    def cross_correlate(
+        self,
+        stream_dict,
+        shift_len: float = 1,
+        plot: bool = False,
+        out_dir: str | Path = "correlation_plots",
+        out_filename: str | Path = "correlation.png",
+    ):
         jl = Julia()
 
         # write streams
@@ -72,3 +80,35 @@ class SeismicCorrelator:
                 slice["trace_ids"],
                 slice["trace_ids"],
             )
+
+            if plot:
+
+                fig = figure(figsize=(7, 7), layout="constrained")
+
+                ax = fig.add_subplot()
+
+                ax.xaxis.tick_top()
+                ax.xaxis.set_label_position("top")
+
+                crmat = ax.imshow(corr_matrix, vmin=0, vmax=1, cmap="viridis")
+
+                cbar = fig.colorbar(crmat, ax=ax, shrink=0.6)
+                cbar.ax.set_ylabel("correlation value")
+
+                ax.set_title(
+                    f"correlations, station: {slice['station'][1]}, channel: {slice['channel'][1]}"
+                )
+
+                ax.set_xlabel("event index")
+                ax.set_ylabel("event index")
+
+                fig.savefig(
+                    out_dir
+                    / (
+                        out_filename.stem
+                        + f"_{slice['station'][1]}_{slice['channel'][1]}"
+                        + out_filename.suffix
+                    )
+                )
+
+                close()

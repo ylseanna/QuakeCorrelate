@@ -517,6 +517,8 @@ class CorrelationFile:
         out_dir: str | Path = "correlation_plots",
         out_filename: str | Path = "cross_channel_correlation.png",
     ):
+        raise NotImplementedError
+
         # ensure pathlib objects
         out_dir = Path(out_dir)
         out_filename = Path(out_filename)
@@ -528,7 +530,7 @@ class CorrelationFile:
 
         for i, primary_event in enumerate(events):
             for j, secondary_event in enumerate(events):
-                print(i,j)
+                print(i, j)
 
                 self.cursor.execute(
                     "SELECT *  FROM correlations WHERE primary_trace_id IN ({}) INTERSECT SELECT *  FROM correlations WHERE secondary_trace_id IN ({})".format(
