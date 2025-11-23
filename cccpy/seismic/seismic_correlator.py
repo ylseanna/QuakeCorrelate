@@ -38,6 +38,10 @@ class SeismicCorrelator:
         out_dir: str | Path = "correlation_plots",
         out_filename: str | Path = "correlation.png",
     ):
+        out_dir = Path(out_dir)
+        out_filename = Path(out_filename)
+        
+        # get julia
         jl = Julia()
 
         # write streams
@@ -77,8 +81,8 @@ class SeismicCorrelator:
             self.correlation_file.write_correlation_matrix(
                 corr_matrix,
                 lag_matrix,
-                slice["trace_ids"],
-                slice["trace_ids"],
+                [slice[0] for slice in slice["traces"]],
+                [slice[0] for slice in slice["traces"]],
             )
 
             if plot:
