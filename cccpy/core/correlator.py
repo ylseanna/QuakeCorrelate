@@ -1,5 +1,6 @@
-from .io.correlation_file import CorrelationFile
 from pathlib import Path
+
+from .io.correlation_file import CorrelationFile
 
 
 class Correlator:

@@ -1,8 +1,7 @@
-
 from typing import Literal
 import numpy as np
 
-from juliacall import Main as jl
+from .interface import Julia
 
 
 def ncc(
@@ -23,6 +22,8 @@ def ncc(
     """Normalized cross correlation core function of CCC.
 
     Wraps CCC.jl's functions with the same name."""
+
+    jl = Julia()
 
     if np.array(signals).ndim == 1:
         result, lag = jl.CCC.ncc(

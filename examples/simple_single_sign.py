@@ -1,8 +1,8 @@
 from os import environ
-import numpy as np
-from matplotlib.pyplot import figure, show
 
+import numpy as np
 from juliacall import Main as jl
+from matplotlib.pyplot import figure, show
 
 # template
 vals = np.arange(0, 20, 0.1)

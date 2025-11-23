@@ -1,9 +1,11 @@
-from pathlib import Path
-import sqlite3
 import logging
+import sqlite3
+from pathlib import Path
+from typing import List, Literal, Tuple, TypedDict
+
 import numpy as np
 import pandas as pd
-from typing import TypedDict, List, Tuple
+from matplotlib.pyplot import figure, close
 
 
 class CorrelationSlice(TypedDict):
@@ -371,7 +373,7 @@ class CorrelationFile:
                                 if event_tuple[0]
                                 not in [trace[1] for trace in traces_per_channel]
                             ],
-                            "trace_ids": [trace[0] for trace in traces_per_channel],
+                            "traces": [trace for trace in traces_per_channel],
                         }
                     )
 
@@ -402,10 +404,10 @@ class CorrelationFile:
         # load channels
         channels = self.get_channels(as_df=False)
 
-        station_dict = {}
-
         station_array = []
         for station_id, station in stations:
+            station_dict = {}
+
             station_dict["station"] = (station_id, station)
 
             traces = [
@@ -446,8 +448,7 @@ class CorrelationFile:
         else:
             return channels
 
-    def get_events(self, as_df=True):
-
+    def get_events(self, as_df=True, get_traces=False):
         if not self.is_seismic:
             raise NotImplementedError(
                 "This correlation file is not configured for seismic data"
@@ -455,9 +456,250 @@ class CorrelationFile:
 
         events = [request for request in self.cursor.execute("SELECT * FROM events")]
 
-        if as_df:
-            events_df = pd.DataFrame.from_records(events, columns=["index", "event_id"])
+        if not get_traces:
+            if as_df:
+                events_df = pd.DataFrame.from_records(
+                    events, columns=["index", "event_id"]
+                )
 
-            return events_df
+                return events_df
+            else:
+                return events
+
+        event_array = []
+        for event_id, event in events:
+            event_dict = {}
+
+            event_dict["event"] = (event_id, event)
+
+            traces = [
+                request
+                for request in self.cursor.execute(
+                    f"SELECT * FROM traces WHERE event_id = {event_id}"
+                )
+            ]
+
+            event_dict["traces"] = traces
+
+            event_array.append(event_dict)
+
+        if as_df:
+            raise NotImplementedError
         else:
-            return events
+            return event_array
+
+    def get_correlations(self, as_df: bool = True, where: str | None = None):
+        correlations = [
+            request
+            for request in self.cursor.execute(
+                f"SELECT * FROM correlations {'WHERE ' + where if where else ''}"
+            )
+        ]
+
+        if as_df:
+            correlations_df = pd.DataFrame.from_records(
+                correlations,
+                columns=[
+                    "index",
+                    "primary_trace_id",
+                    "secondary_trace_id",
+                    "correlation_value",
+                    "lag",
+                ],
+            )
+
+            return correlations_df
+        else:
+            return correlations
+
+    def get_cross_channel_correlations(
+        self,
+        out_dir: str | Path = "correlation_plots",
+        out_filename: str | Path = "cross_channel_correlation.png",
+    ):
+        # ensure pathlib objects
+        out_dir = Path(out_dir)
+        out_filename = Path(out_filename)
+
+        events = self.get_events(as_df=False, get_traces=True)
+
+        correllation_matrix = np.empty((len(events), len(events)))
+        correllation_matrix[:] = np.nan
+
+        for i, primary_event in enumerate(events):
+            for j, secondary_event in enumerate(events):
+                print(i,j)
+
+                self.cursor.execute(
+                    "SELECT *  FROM correlations WHERE primary_trace_id IN ({}) INTERSECT SELECT *  FROM correlations WHERE secondary_trace_id IN ({})".format(
+                        str([trace[0] for trace in primary_event["traces"]])[1:-1],
+                        str([trace[0] for trace in secondary_event["traces"]])[1:-1],
+                    )
+                )
+
+                correlations = self.cursor.fetchall()
+
+                if correlations:
+                    mean_corr_val = np.mean(
+                        [correlation[4] for correlation in correlations]
+                    )
+
+                    correllation_matrix[i, j] = mean_corr_val
+
+        fig = figure(figsize=(7, 7), layout="constrained")
+
+        ax = fig.add_subplot()
+
+        ax.xaxis.tick_top()
+        ax.xaxis.set_label_position("top")
+
+        crmat = ax.imshow(correllation_matrix, vmin=0, vmax=1, cmap="viridis")
+
+        cbar = fig.colorbar(crmat, ax=ax, shrink=0.6)
+        cbar.ax.set_ylabel("correlation value")
+
+        ax.set_title("correlations, cross-channel")
+
+        ax.set_xlabel("event index")
+        ax.set_ylabel("event index")
+
+        fig.savefig(out_dir / out_filename, bbox_inches="tight")
+
+        close()
+
+        return correllation_matrix
+
+    def plot_by_station_and_channel(
+        self,
+        stations: Literal["all"] | List[str] = "all",
+        channels: Literal["all"] | List[str] = "all",
+        out_dir: str | Path = "correlation_plots",
+        out_filename: str | Path = "correlation.png",
+        include_empty_values: bool = True,
+    ):
+        # ensure pathlib objects
+        out_dir = Path(out_dir)
+        out_filename = Path(out_filename)
+
+        out_dir.mkdir(exist_ok=True, parents=True)
+
+        # inputs
+        slices = self.slice_by_station_and_channel()
+
+        if stations != "all":
+            raise NotImplementedError(
+                "Whoops, I gave you the option but I still need to write this code"
+            )
+        elif stations == "all":
+            append_station_and_channel_name = True
+        elif len(stations) > 1:
+            raise NotImplementedError(
+                "Whoops, I gave you the option but I still need to write this code"
+            )
+        elif len(stations) == 1:
+            append_station_and_channel_name = False
+
+        if channels != "all":
+            raise NotImplementedError(
+                "Whoops, I gave you the option but I still need to write this code"
+            )
+
+        for slice in slices:
+            event_indices = (
+                sorted(
+                    [event[0] for event in slice["events"] + slice["excluded_events"]]
+                )
+                if include_empty_values
+                else [event[0] for event in slice["events"]]
+            )
+
+            trace_indices = [
+                (
+                    [trace[0] for trace in slice["traces"] if trace[1] == event_id][0]
+                    if [trace[0] for trace in slice["traces"] if trace[1] == event_id]
+                    else np.nan
+                )
+                for event_id in event_indices
+            ]
+
+            correlations = self.get_correlations(
+                as_df=False,
+                where=f"primary_trace_id IN ({str([trace[0] for trace in slice['traces']])[1:-1]})",
+            )
+
+            correlation_dict = {
+                str(correlation_outer[1]): {
+                    str(correlation_inner[2]): (
+                        correlation_inner[3],
+                        correlation_inner[4],
+                    )
+                    for correlation_inner in correlations
+                    if correlation_inner[1] == correlation_outer[1]
+                }
+                for correlation_outer in correlations
+            }
+
+            if include_empty_values:
+                correllation_matrix = np.empty((len(trace_indices), len(trace_indices)))
+                lag_matrix = np.empty((len(trace_indices), len(trace_indices)))
+
+                correllation_matrix[:] = np.nan
+                lag_matrix[:] = np.nan
+
+                for i, primary_trace_id in enumerate(trace_indices):
+                    for j, secondary_trace_id in enumerate(trace_indices):
+
+                        if not np.isnan(primary_trace_id) and not np.isnan(
+                            secondary_trace_id
+                        ):
+                            correllation_matrix[i, j], lag_matrix[i, j] = (
+                                correlation_dict[str(primary_trace_id)][
+                                    str(secondary_trace_id)
+                                ]
+                            )
+
+            else:
+                correllation_matrix = np.zeros((len(trace_indices), len(trace_indices)))
+                lag_matrix = np.zeros((len(trace_indices), len(trace_indices)))
+
+                for i, primary_trace_id in enumerate(trace_indices):
+                    for j, secondary_trace_id in enumerate(trace_indices):
+
+                        correllation_matrix[i, j], lag_matrix[i, j] = correlation_dict[
+                            str(primary_trace_id)
+                        ][str(secondary_trace_id)]
+
+            print(correllation_matrix)
+
+            fig = figure(figsize=(7, 7), layout="constrained")
+
+            ax = fig.add_subplot()
+
+            ax.xaxis.tick_top()
+            ax.xaxis.set_label_position("top")
+
+            crmat = ax.imshow(correllation_matrix, vmin=0, vmax=1, cmap="viridis")
+
+            cbar = fig.colorbar(crmat, ax=ax, shrink=0.6)
+            cbar.ax.set_ylabel("correlation value")
+
+            ax.set_title(
+                f"correlations, station: {slice['station'][1]}, channel: {slice['channel'][1]}"
+            )
+
+            ax.set_xlabel("event index")
+            ax.set_ylabel("event index")
+
+            if append_station_and_channel_name:
+                fig.savefig(
+                    out_dir
+                    / (
+                        out_filename.stem
+                        + f"_{slice['station'][1]}_{slice['channel'][1]}"
+                        + out_filename.suffix
+                    )
+                )
+            else:
+                fig.savefig(out_dir / out_filename, bbox_inches="tight")
+
+            close()

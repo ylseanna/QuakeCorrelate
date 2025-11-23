@@ -1,20 +1,24 @@
-from pathlib import Path
-from obspy import read
 import time
-import cccpy
+from pathlib import Path
 
+from obspy import read
+
+from cccpy.seismic import cross_correlate_seismic_events
 
 stream_dict = dict()
 
-for mseed_path in sorted(Path("./examples/test_data").glob("*/**/*_st_long.ms")):
-    event_id = mseed_path.parent.stem
+for mseed_path in sorted(Path("./examples/test_data_bardarbunga_2017").glob("**/*_long.ms")):
+    event_id = mseed_path.stem
     stream = read(mseed_path, format="MSEED")
 
     stream_dict[event_id] = stream
 
-start= time.time()
+if stream_dict:
+    start = time.time()
 
-cccpy.cross_correlate_seismic_events(stream_dict)
+    cross_correlate_seismic_events(stream_dict)
 
-end= time.time()
-print("execution time", (end-start))
+    end = time.time()
+    print("execution time", (end - start))
+else:
+    raise TypeError("Nothing to correlate!!")

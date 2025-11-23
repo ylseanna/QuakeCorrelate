@@ -1,9 +1,12 @@
-import numpy as np
+
 from pathlib import Path
 from typing import List
-from juliacall import Main as jl
+
+import numpy as np
 
 from ..core.io import CorrelationFile
+
+from ..core.interface import Julia
 
 
 class SeismicCorrelator:
@@ -27,6 +30,8 @@ class SeismicCorrelator:
             self.correlation_file.write_channels(channels)
 
     def cross_correlate(self, stream_dict, shift_len: float = 1):
+        jl = Julia()
+
         # write streams
         self.correlation_file.write_streams(stream_dict)
 
@@ -42,7 +47,7 @@ class SeismicCorrelator:
             data = np.array(
                 [
                     [
-                        trace.data[:704]
+                        trace.data[:249]
                         for trace in stream
                         if trace.stats.channel == slice["channel"][1]
                         and trace.stats.station == slice["station"][1]
