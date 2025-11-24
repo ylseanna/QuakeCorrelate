@@ -70,6 +70,3 @@ def cross_correlate_seismic_events(
     )
 
     correlator.cross_correlate(stream_dict, plot=plot_corr_matrix)
-
-    # stations
-    print(correlator.correlation_file.get_stations(include_channels=True, as_df=False))

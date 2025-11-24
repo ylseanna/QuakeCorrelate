@@ -299,8 +299,6 @@ class CorrelationFile:
             )
         ]
 
-        print(vars[0])
-
         self.cursor.executemany(
             "INSERT INTO correlations ('primary_trace_id', 'secondary_trace_id', 'correlation_value', 'lag') VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING",
             vars,
