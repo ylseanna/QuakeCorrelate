@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from .io.correlation_file import CorrelationFile
+from .io.correlation_file_sqlite import CorrelationFile
 
 
 class Correlator:

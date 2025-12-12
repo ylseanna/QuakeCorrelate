@@ -1,1 +1,1 @@
-from .julia import Julia  # noqa: F401
+from .julia import JuliaInterface  # noqa: F401

@@ -1,4 +1,4 @@
-from cccpy.core.io.correlation_file import CorrelationFile
+from cccpy.cccpy.core.io.correlation_file_sqlite import CorrelationFile
 
 correlation_file = CorrelationFile(filename="correlation.sqlite", seismic_data=True)
 

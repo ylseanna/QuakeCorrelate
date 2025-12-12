@@ -1,7 +1,7 @@
 from typing import Literal
 import numpy as np
 
-from .interface import Julia
+from .interface import JuliaInterface
 
 
 def ncc(
@@ -23,7 +23,7 @@ def ncc(
 
     Wraps CCC.jl's functions with the same name."""
 
-    jl = Julia()
+    jl = JuliaInterface()
 
     if np.array(signals).ndim == 1:
         result, lag = jl.CCC.ncc(

@@ -3,24 +3,29 @@ from typing import List
 
 import numpy as np
 from matplotlib.pyplot import close, figure
+from obspy import Catalog
 
-from ..core.interface import Julia
-from ..core.io import CorrelationFile
+from ..core.interface import JuliaInterface
+from ..core.io.correlation_file_zarr import SeismicCorrelationFile
 
 
 class SeismicCorrelator:
     def __init__(
         self,
-        corr_file: str | Path = Path("correlation.sqlite"),
+        corr_file: str | Path = Path("correlations.zarr"),
         overwrite_corr_file: bool = False,
+        catalog: Catalog | None = None,
         stations: List[str] | None = None,
         channels: List[str] | None = None,
     ):
         corr_file = Path(corr_file)
 
-        self.correlation_file = CorrelationFile(
-            filename=corr_file, seismic_data=True, overwrite_file=overwrite_corr_file
+        self.correlation_file = SeismicCorrelationFile(
+            filename=corr_file, overwrite_file=overwrite_corr_file
         )
+
+        if catalog is not None:
+            self.correlation_file.write_catalog(catalog)
 
         if stations is not None:
             self.correlation_file.write_stations(stations)
@@ -40,220 +45,219 @@ class SeismicCorrelator:
         out_filename = Path(out_filename)
 
         # get julia
-        jl = Julia()
+        jl = JuliaInterface()
 
         # write streams
-        self.correlation_file.write_streams(stream_dict)
+        self.correlation_file.write_events(list(stream_dict.keys()))
 
-        slices = self.correlation_file.slice_by_station_and_channel()
+        # get event data
+        events = self.correlation_file.get_events(as_df=False)
+
+        # get slices
+        per_station_slices = self.correlation_file.slice_by_station_and_channel()
 
         # NOTE: ceil to power of 2 for shift_len
 
-        if plot:
-            events = self.correlation_file.get_events()
+        # if plot:
+        #     events = self.correlation_file.get_events()
 
-            vertical_component_corr_matrices = np.empty(
-                (len(events), len(events), len(slices))
-            )
-            vertical_component_corr_matrices[:] = np.nan
+        #     vertical_component_corr_matrices = np.empty(
+        #         (len(events), len(events), len(per_station_slices.keys()))
+        #     )
+        #     vertical_component_corr_matrices[:] = np.nan
 
-            horizontal_component_corr_matrices = np.empty(
-                (len(events), len(events), len(slices))
-            )
-            horizontal_component_corr_matrices[:] = np.nan
+        #     horizontal_component_corr_matrices = np.empty(
+        #         (len(events), len(events), len(per_station_slices.keys()))
+        #     )
+        #     horizontal_component_corr_matrices[:] = np.nan
 
-        for slice_i, slice in enumerate(slices):
-            print(
-                f"--- Correlating for station {slice['station'][1]} channel {slice['channel'][1]} ---"
-            )
+        for station, per_channel_slice in per_station_slices.items():
+            for channel, event_indices in per_channel_slice.items():
+                print(f"--- Correlating for station {station}, channel {channel} ---")
 
-            data = np.array(
-                [
+                data = np.array(
                     [
-                        trace.data[:249]
-                        for trace in stream
-                        if trace.stats.channel == slice["channel"][1]
-                        and trace.stats.station == slice["station"][1]
-                    ][0]
-                    for stream in [
-                        stream
+                        [
+                            trace.data[:249]
+                            for trace in stream
+                            if trace.stats.channel == channel
+                            and trace.stats.station == station
+                        ][0]
                         for stream in [
-                            stream_dict[event[1]] for event in slice["events"]
+                            stream
+                            for stream in [
+                                stream_dict[event_id]
+                                for event_index, event_id in events.items()
+                                if int(event_index) in event_indices
+                            ]
                         ]
                     ]
-                ]
-            ).T
+                ).T
 
-            mat_cpu, lag_cpu = jl.CCC.ncc_cuda(data, data, 128, 256)
+                mat_cpu, lag_cpu = jl.CCC.ncc_cuda(data, data, 128, 256)
 
-            corr_matrix = np.array(mat_cpu).T
-            lag_matrix = np.array(lag_cpu).T
+                corr_matrix = np.array(mat_cpu).T
+                lag_matrix = np.array(lag_cpu).T
 
-            self.correlation_file.write_correlation_matrix(
-                corr_matrix,
-                lag_matrix,
-                [slice[0] for slice in slice["traces"]],
-                [slice[0] for slice in slice["traces"]],
-            )
-
-            print("    correlation complete!")
-
-            if plot:
-                if slice["channel"][1].endswith(("Z", "3")):
-                    for i, event_id_i in enumerate(
-                        [event[0] for event in slice["events"]]
-                    ):
-                        for j, event_id_j in enumerate(
-                            [event[0] for event in slice["events"]]
-                        ):
-                            vertical_component_corr_matrices[
-                                event_id_i - 1, event_id_j - 1, slice_i
-                            ] = corr_matrix[i, j]
-                if slice["channel"][1].endswith(("E", "N", "1", "2")):
-                    for i, event_id_i in enumerate(
-                        [event[0] for event in slice["events"]]
-                    ):
-                        for j, event_id_j in enumerate(
-                            [event[0] for event in slice["events"]]
-                        ):
-                            horizontal_component_corr_matrices[
-                                event_id_i - 1, event_id_j - 1, slice_i
-                            ] = corr_matrix[i, j]
-
-                fig = figure(figsize=(7, 7), layout="constrained")
-
-                ax = fig.add_subplot()
-
-                ax.xaxis.tick_top()
-                ax.xaxis.set_label_position("top")
-
-                crmat = ax.imshow(corr_matrix, vmin=0, vmax=1, cmap="viridis")
-
-                cbar = fig.colorbar(crmat, ax=ax, shrink=0.6)
-                cbar.ax.set_ylabel("correlation value")
-
-                ax.set_title(
-                    f"correlations, station: {slice['station'][1]}, channel: {slice['channel'][1]}"
+                sparse_corr_matrix = np.empty(
+                    (max(event_indices) + 1, max(event_indices) + 1)
+                )
+                sparse_lag_matrix = np.empty(
+                    (max(event_indices) + 1, max(event_indices) + 1)
                 )
 
-                ax.set_xlabel("event number")
-                ax.set_ylabel("event number")
+                sparse_corr_matrix[:] = np.nan
+                sparse_lag_matrix[:] = np.nan
 
-                fig.savefig(
-                    out_dir
-                    / (
-                        out_filename.stem
-                        + f"_{slice['station'][1]}_{slice['channel'][1]}"
-                        + out_filename.suffix
+                for i, event_id_i in enumerate(event_indices):
+                    for j, event_id_j in enumerate(event_indices):
+                        sparse_corr_matrix[event_id_i, event_id_j] = corr_matrix[i, j]
+                        sparse_lag_matrix[event_id_i, event_id_j] = lag_matrix[i, j]
+
+                self.correlation_file.write_correlation_matrix(
+                    sparse_corr_matrix,
+                    sparse_lag_matrix,
+                    station=station,
+                    channel=channel,
+                )
+
+                print("    correlation complete!")
+
+                if plot:
+                    Path("./correlation_plots").mkdir(exist_ok=True, parents=True)
+                    
+                    fig = figure(figsize=(7, 7), layout="constrained")
+
+                    ax = fig.add_subplot()
+
+                    ax.xaxis.tick_top()
+                    ax.xaxis.set_label_position("top")
+
+                    crmat = ax.imshow(corr_matrix, vmin=0, vmax=1, cmap="viridis")
+
+                    cbar = fig.colorbar(crmat, ax=ax, shrink=0.6)
+                    cbar.ax.set_ylabel("correlation value")
+
+                    ax.set_title(
+                        f"correlations, station: {station}, channel: {channel}"
                     )
-                )
 
-                close()
+                    ax.set_xlabel("event number")
+                    ax.set_ylabel("event number")
 
-                fig = figure(figsize=(7, 7), layout="constrained")
-
-                ax = fig.add_subplot()
-
-                ax.xaxis.tick_top()
-                ax.xaxis.set_label_position("top")
-
-                crmat = ax.imshow(
-                    (
-                        vertical_component_corr_matrices[:, :, slice_i]
-                        if slice["channel"][1].endswith(("Z", "3"))
-                        else horizontal_component_corr_matrices[:, :, slice_i]
-                    ),
-                    vmin=0,
-                    vmax=1,
-                    cmap="viridis",
-                )
-
-                cbar = fig.colorbar(crmat, ax=ax, shrink=0.6)
-                cbar.ax.set_ylabel("correlation value")
-
-                ax.set_title(
-                    f"correlations, station: {slice['station'][1]}, channel: {slice['channel'][1]}"
-                )
-
-                ax.set_xlabel("event index")
-                ax.set_ylabel("event index")
-
-                fig.savefig(
-                    out_dir
-                    / (
-                        out_filename.stem
-                        + f"_{slice['station'][1]}_{slice['channel'][1]}_with_empty_vals"
-                        + out_filename.suffix
+                    fig.savefig(
+                        out_dir
+                        / (
+                            out_filename.stem
+                            + f"_{station}_{channel}"
+                            + out_filename.suffix
+                        )
                     )
-                )
 
-                close()
+                    close()
 
-                print("    plotted cross correlation matrix!")
+                    fig = figure(figsize=(7, 7), layout="constrained")
 
-        if plot:
-            fig = figure(figsize=(7, 7), layout="constrained")
+                    ax = fig.add_subplot()
 
-            ax = fig.add_subplot()
+                    ax.xaxis.tick_top()
+                    ax.xaxis.set_label_position("top")
 
-            ax.xaxis.tick_top()
-            ax.xaxis.set_label_position("top")
+                    crmat = ax.imshow(
+                        (
+                            sparse_corr_matrix
+                        ),
+                        vmin=0,
+                        vmax=1,
+                        cmap="viridis",
+                    )
 
-            crmat = ax.imshow(
-                np.nanmean(vertical_component_corr_matrices, axis=2),
-                vmin=0,
-                vmax=1,
-                cmap="viridis",
-            )
+                    cbar = fig.colorbar(crmat, ax=ax, shrink=0.6)
+                    cbar.ax.set_ylabel("correlation value")
 
-            cbar = fig.colorbar(crmat, ax=ax, shrink=0.6)
-            cbar.ax.set_ylabel("correlation value")
+                    ax.set_title(
+                        f"correlations, station: {station}, channel: {channel}"
+                    )
 
-            ax.set_title(
-                "correlations, cross-channel mean, vertical channels"
-            )
+                    ax.set_xlabel("event index")
+                    ax.set_ylabel("event index")
 
-            ax.set_xlabel("event index")
-            ax.set_ylabel("event index")
+                    fig.savefig(
+                        out_dir
+                        / (
+                            out_filename.stem
+                            + f"_{station}_{channel}_with_empty_vals"
+                            + out_filename.suffix
+                        )
+                    )
 
-            fig.savefig(
-                Path(".")
-                / (out_filename.stem + "_cross_channel_vertical" + out_filename.suffix)
-            )
+                    close()
 
-            close()
+                    print("    plotted cross correlation matrix!")
 
-            print("--- plotted mean vertical cross-channel correlation matrix!")
+        # if plot:
+        #     fig = figure(figsize=(7, 7), layout="constrained")
 
-            fig = figure(figsize=(7, 7), layout="constrained")
+        #     ax = fig.add_subplot()
 
-            ax = fig.add_subplot()
+        #     ax.xaxis.tick_top()
+        #     ax.xaxis.set_label_position("top")
 
-            ax.xaxis.tick_top()
-            ax.xaxis.set_label_position("top")
+        #     crmat = ax.imshow(
+        #         np.nanmean(vertical_component_corr_matrices, axis=2),
+        #         vmin=0,
+        #         vmax=1,
+        #         cmap="viridis",
+        #     )
 
-            crmat = ax.imshow(
-                np.nanmean(horizontal_component_corr_matrices, axis=2),
-                vmin=0,
-                vmax=1,
-                cmap="viridis",
-            )
+        #     cbar = fig.colorbar(crmat, ax=ax, shrink=0.6)
+        #     cbar.ax.set_ylabel("correlation value")
 
-            cbar = fig.colorbar(crmat, ax=ax, shrink=0.6)
-            cbar.ax.set_ylabel("correlation value")
+        #     ax.set_title("correlations, cross-channel mean, vertical channels")
 
-            ax.set_title(
-                "correlations, cross-channel mean, horizontal channels"
-            )
+        #     ax.set_xlabel("event index")
+        #     ax.set_ylabel("event index")
 
-            ax.set_xlabel("event index")
-            ax.set_ylabel("event index")
+        #     fig.savefig(
+        #         Path(".")
+        #         / (out_filename.stem + "_cross_channel_vertical" + out_filename.suffix)
+        #     )
 
-            fig.savefig(
-                Path(".")
-                / (out_filename.stem + "_cross_channel_horizontal" + out_filename.suffix)
-            )
+        #     close()
 
-            close()
+        #     print("--- plotted mean vertical cross-channel correlation matrix!")
 
-            print("--- plotted mean horizontal cross-channel correlation matrix!")
+        #     fig = figure(figsize=(7, 7), layout="constrained")
+
+        #     ax = fig.add_subplot()
+
+        #     ax.xaxis.tick_top()
+        #     ax.xaxis.set_label_position("top")
+
+        #     crmat = ax.imshow(
+        #         np.nanmean(horizontal_component_corr_matrices, axis=2),
+        #         vmin=0,
+        #         vmax=1,
+        #         cmap="viridis",
+        #     )
+
+        #     cbar = fig.colorbar(crmat, ax=ax, shrink=0.6)
+        #     cbar.ax.set_ylabel("correlation value")
+
+        #     ax.set_title("correlations, cross-channel mean, horizontal channels")
+
+        #     ax.set_xlabel("event index")
+        #     ax.set_ylabel("event index")
+
+        #     fig.savefig(
+        #         Path(".")
+        #         / (
+        #             out_filename.stem
+        #             + "_cross_channel_horizontal"
+        #             + out_filename.suffix
+        #         )
+        #     )
+
+        #     close()
+
+        #     print("--- plotted mean horizontal cross-channel correlation matrix!")

@@ -1,1 +1,1 @@
-from .correlation_file import CorrelationFile  # noqa: F401
+from .correlation_file_sqlite import CorrelationFile  # noqa: F401
