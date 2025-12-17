@@ -26,7 +26,7 @@ for mseed_path in sorted(
 if stream_dict:
     start = time.time()
 
-    cross_correlate_seismic_events(stream_dict, template_catalog, plot_corr_matrix=True)
+    cross_correlate_seismic_events(stream_dict, template_catalog, plot_corr_matrix=False)
 
     end = time.time()
     print("execution time", (end - start))

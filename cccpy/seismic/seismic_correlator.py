@@ -1,12 +1,19 @@
+import logging
+import time
+from math import ceil
 from pathlib import Path
 from typing import List
 
 import numpy as np
-from matplotlib.pyplot import close, figure
+from matplotlib.pyplot import figure
 from obspy import Catalog
+from scipy.interpolate import CubicSpline
 
 from ..core.interface import JuliaInterface
 from ..core.io.correlation_file_zarr import SeismicCorrelationFile
+from ..util.helper_functions import next_power_of_2
+
+logger = logging.getLogger(__name__)
 
 
 class SeismicCorrelator:
@@ -36,7 +43,11 @@ class SeismicCorrelator:
     def cross_correlate(
         self,
         stream_dict,
-        shift_len: float = 1,
+        length: float | None = None,
+        padding: float = 0.0,
+        shift_len: float = 1.0,
+        interpolate: int | None = None,
+        threads_per_block: int = 256,
         plot: bool = False,
         out_dir: str | Path = "correlation_plots",
         out_filename: str | Path = "correlation.png",
@@ -58,53 +69,157 @@ class SeismicCorrelator:
 
         # NOTE: ceil to power of 2 for shift_len
 
-        # if plot:
-        #     events = self.correlation_file.get_events()
-
-        #     vertical_component_corr_matrices = np.empty(
-        #         (len(events), len(events), len(per_station_slices.keys()))
-        #     )
-        #     vertical_component_corr_matrices[:] = np.nan
-
-        #     horizontal_component_corr_matrices = np.empty(
-        #         (len(events), len(events), len(per_station_slices.keys()))
-        #     )
-        #     horizontal_component_corr_matrices[:] = np.nan
-
         for station, per_channel_slice in per_station_slices.items():
             for channel, event_indices in per_channel_slice.items():
                 print(f"--- Correlating for station {station}, channel {channel} ---")
 
-                data = np.array(
+                ### get all traces from which we need to take the data (sort by channel, station and all event indices in slice)
+                traces_sliced = [
                     [
-                        [
-                            trace.data[:249]
-                            for trace in stream
-                            if trace.stats.channel == channel
-                            and trace.stats.station == station
-                        ][0]
-                        for stream in [
-                            stream
-                            for stream in [
-                                stream_dict[event_id]
-                                for event_index, event_id in events.items()
-                                if int(event_index) in event_indices
-                            ]
-                        ]
+                        trace
+                        for trace in stream
+                        if trace.stats.channel == channel
+                        and trace.stats.station == station
+                    ][0]
+                    for stream in [
+                        stream_dict[event_id]
+                        for event_index, event_id in events.items()
+                        if int(event_index) in event_indices
                     ]
-                ).T
+                ]
 
-                mat_cpu, lag_cpu = jl.CCC.ncc_cuda(data, data, 128, 256)
+                ### calculate relevant values for processing based on input arguments
 
-                corr_matrix = np.array(mat_cpu).T
-                lag_matrix = np.array(lag_cpu).T
+                # get required metadata
+                sampling_rates = [trace.stats.sampling_rate for trace in traces_sliced]
+                nptss = [trace.stats.npts for trace in traces_sliced]
 
-                sparse_corr_matrix = np.empty(
-                    (max(event_indices) + 1, max(event_indices) + 1)
+                # sampling rate
+                unique_sampling_rates = np.unique(sampling_rates)
+
+                if len(unique_sampling_rates) > 1:
+                    logger.warning("Inhomogeneous sampling rates, skipping...")
+                    continue
+
+                sampling_rate = unique_sampling_rates[0]
+
+                print(f"       sampling rate: {sampling_rate:<11.1f} Hz")
+
+                # num samples and start and end of slicing
+
+                # total length of all samples (can accomodate a few samples offset)
+                max_npts = max(nptss)
+
+                # if padding, start not at zero
+                start = int(padding * sampling_rate)
+
+                # if fixed template length is set, calculate length
+                if length:
+                    end = int(start + length * sampling_rate)
+                else:
+                    end = int(
+                        max_npts - padding * sampling_rate
+                    )  # go to end, unless padding
+
+                num_samples = end - start
+
+                print(
+                    f"       num samples:   {num_samples:<11n} (sliced from {max_npts}, start: {start}, end: {end})"
+                    if max_npts != num_samples
+                    else ""
                 )
-                sparse_lag_matrix = np.empty(
-                    (max(event_indices) + 1, max(event_indices) + 1)
+
+                ### get data
+
+                data = []
+
+                # extract data from trace
+                for index, trace in enumerate(traces_sliced):
+                    trace_sliced = trace.data[start:end]
+
+                    if (
+                        len(trace_sliced) != num_samples
+                    ):  # sometimes a single trace is of by a few samples (or improper length is set)
+                        logger.warning(
+                            "One trace did not have the right number of samples (%s samples) for the requested length (%s samples), skipping",
+                            len(trace_sliced),
+                            num_samples,
+                        )
+                        del event_indices[
+                            index
+                        ]  # remove this event from the events that are to be correlated
+                        continue
+
+                    data.append(trace_sliced)
+
+                data = np.array(data).T  # ensure column indexing (for julia)
+
+                ### interpolate (if set)
+
+                if interpolate:
+                    print(f"    Interpolating to {interpolate} subdivisions...")
+                    pre_interp_time = time.time()
+
+                    interpolator = CubicSpline(list(range(data.shape[0])), data)
+
+                    interpolated_data = interpolator(
+                        np.linspace(0, data.shape[0], data.shape[0] * 2**interpolate)
+                    )
+
+                    post_interp_time = time.time()
+
+                    print(
+                        f"    Interpolation complete!         (in {post_interp_time - pre_interp_time:.3g} s)"
+                    )
+
+                    # apply new values
+                    sampling_rate *= 2**interpolate
+                    data = interpolated_data
+
+                    # print new effective rates
+                    print(f"       sampling rate: {sampling_rate:<11.1f} Hz (effective)")
+
+                    print(f"       num samples:   {interpolated_data.shape[0]:<11n}")
+
+                ### do correlation and time it
+
+                shift_len_samples = next_power_of_2(
+                    int(ceil(shift_len * sampling_rate))
                 )
+
+                print(
+                    f"       shift length:  {shift_len:<11.1f} s (ceiled to {shift_len_samples} samples)"
+                )
+
+                print("    Correlating on GPU...")
+
+                pre_corr_time = time.time()
+
+                mat_cpu, lag_cpu = jl.CCC.ncc_cuda(
+                    data, data, shift_len_samples, threads_per_block
+                )
+
+                corr_matrix = np.array(
+                    mat_cpu
+                ).T  # convert julia array and revert to row indexing
+                lag_matrix = np.array(
+                    lag_cpu
+                ).T  # convert julia array and revert to row indexing
+
+                # convert lags from samples to seconds
+                lag_matrix *= sampling_rate
+
+                post_corr_time = time.time()
+
+                print(
+                    f"    Correlation complete!         (in {post_corr_time - pre_corr_time:.3g} s)"
+                )
+
+                # sparsify the matrix for saving in zarr (enables better chunking and later processing)
+                num_events = len(events)
+
+                sparse_corr_matrix = np.empty((num_events, num_events))
+                sparse_lag_matrix = np.empty((num_events, num_events))
 
                 sparse_corr_matrix[:] = np.nan
                 sparse_lag_matrix[:] = np.nan
@@ -121,11 +236,11 @@ class SeismicCorrelator:
                     channel=channel,
                 )
 
-                print("    correlation complete!")
+                print("    Correlations written to disk...")
 
                 if plot:
                     Path("./correlation_plots").mkdir(exist_ok=True, parents=True)
-                    
+
                     fig = figure(figsize=(7, 7), layout="constrained")
 
                     ax = fig.add_subplot()
@@ -154,7 +269,7 @@ class SeismicCorrelator:
                         )
                     )
 
-                    close()
+                    del fig
 
                     fig = figure(figsize=(7, 7), layout="constrained")
 
@@ -164,9 +279,7 @@ class SeismicCorrelator:
                     ax.xaxis.set_label_position("top")
 
                     crmat = ax.imshow(
-                        (
-                            sparse_corr_matrix
-                        ),
+                        (sparse_corr_matrix),
                         vmin=0,
                         vmax=1,
                         cmap="viridis",
@@ -191,7 +304,7 @@ class SeismicCorrelator:
                         )
                     )
 
-                    close()
+                    del fig
 
                     print("    plotted cross correlation matrix!")
 

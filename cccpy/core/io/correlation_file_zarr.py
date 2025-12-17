@@ -7,18 +7,16 @@ import pandas as pd
 import zarr
 from matplotlib.pyplot import close, figure
 from obspy import Catalog
-from zarr.core.group import GroupMetadata
-from zarr.storage import LocalStore
 
 from ...util import ensure_unique_values
 
+logger = logging.getLogger(__name__)
 
-class CorrelationSlice(TypedDict):
-    station: str | Tuple[int, str]
-    channel: str | Tuple[int, str]
-    events: List[str] | List[Tuple[int, str]]
-    excluded_events: List[str] | List[Tuple[int, str]]
-    traces: List[str] | List[Tuple[int, str]]
+
+class CorrMatrixDict(TypedDict):
+    station: str
+    channel: str
+    corr_matrix: np.ndarray
 
 
 class SeismicCorrelationFile:
@@ -44,6 +42,8 @@ class SeismicCorrelationFile:
             **root_args,  # overwrite or else default
         )
 
+    ### WRITE
+
     def write_catalog(self, catalog: Catalog):
         """Writes a summary catalog of all the events
 
@@ -65,6 +65,7 @@ class SeismicCorrelationFile:
 
             if origin:
                 event_dict["origin"] = {
+                    "time": origin.time.isoformat(),
                     "lon": origin.longitude,
                     "lat": origin.latitude,
                     "depth": origin.depth,
@@ -172,115 +173,6 @@ class SeismicCorrelationFile:
         # insert into attributes
         self.root.attrs["events"] = keyed_event_dict
 
-    # def write_streams(self, stream_dict: dict, external_catalog: bool = False):
-    #     """Function to add the stream pointers to the correlation file.
-
-    #     Will modify both the events table (each event_id) and the traces table (each individual trace in the dictionary).
-
-    #     Args:
-    #         stream_dict (Dict[str, Stream]):
-    #             A dictionary containing event streams keyed by their event id (string)
-    #         external_catalog (bool):
-    #             Option which determines whether event_ids are taken from the stream dict (no event metadata) or an external catalog has already been inserted into the table
-    #     """
-
-    #     if not self.is_seismic:
-    #         raise NotImplementedError(
-    #             "This correlation file is not configured for seismic data"
-    #         )
-
-    #     ### add access event_ids to add to events table
-
-    #     event_ids = list(stream_dict.keys())
-
-    #     # ensure sorting
-    #     event_ids.sort()
-
-    #     # make into insert variables
-    #     vars = [(event,) for event in event_ids]
-
-    #     # insert events
-    #     self.cursor.executemany(
-    #         "INSERT INTO events ('external_id') VALUES (?) ON CONFLICT DO NOTHING",
-    #         vars,
-    #     )
-
-    #     if self.cursor.rowcount == 0:
-    #         logging.warning(
-    #             "No new events were added, they had the same id as previously supplied"
-    #         )
-    #     elif self.cursor.rowcount < len(vars):
-    #         logging.warning(
-    #             f"{len(vars) - self.cursor.rowcount} events weren't added, they had the same id as previously supplied"
-    #         )
-
-    #     self.connection.commit()
-
-    #     ### insert traces (NOTE: foreign keys have to be properly referenced!!!)
-
-    #     # request all stations with their primary ids
-    #     stations = [
-    #         request for request in self.cursor.execute("SELECT * FROM stations")
-    #     ]
-
-    #     # request all channel ids with their primary ids
-    #     channels = [
-    #         request for request in self.cursor.execute("SELECT * FROM channels")
-    #     ]
-
-    #     # request all event ids with their primary ids
-    #     events = [request for request in self.cursor.execute("SELECT * FROM events")]
-
-    #     # find corresponding indices for trace metadata and save as parameters for database
-    #     vars = []
-
-    #     for event_id, stream in stream_dict.items():
-    #         event_index = [event for event in events if event[1] == event_id][0][0]
-
-    #         for trace in stream:
-    #             try:
-    #                 station_index = [
-    #                     station
-    #                     for station in stations
-    #                     if station[1] == trace.stats.station
-    #                 ][0][0]
-    #             except:
-    #                 logging.warning(
-    #                     "Trace's station not present in correlation file, skipping"
-    #                 )
-    #                 continue
-
-    #             try:
-    #                 channel_index = [
-    #                     channel
-    #                     for channel in channels
-    #                     if channel[1] == trace.stats.channel
-    #                 ][0][0]
-    #             except:
-    #                 logging.warning(
-    #                     "Trace's channel not present in correlation file, skipping"
-    #                 )
-    #                 continue
-
-    #             vars.append((event_index, station_index, channel_index))
-
-    #     # insert traces
-    #     self.cursor.executemany(
-    #         "INSERT INTO traces ('event_id', 'station_id', 'channel_id') VALUES (?, ?, ?) ON CONFLICT DO NOTHING",
-    #         vars,
-    #     )
-
-    #     if self.cursor.rowcount == 0:
-    #         logging.warning(
-    #             "No new traces were added, they had the same event, station and channel ids as previously supplied"
-    #         )
-    #     elif self.cursor.rowcount < len(vars):
-    #         logging.warning(
-    #             f"{len(vars) - self.cursor.rowcount} traces weren't added, they had the same event, station and channel ids  as previously supplied"
-    #         )
-
-    #     self.connection.commit()
-
     def write_correlation_matrix(
         self,
         corr_matrix: np.ndarray,
@@ -291,19 +183,21 @@ class SeismicCorrelationFile:
         self.root.create_array(
             f"{station}/{channel}/corr_values",
             data=corr_matrix,
-            chunks=(100, 100),
-            shards=(1000, 1000),
+            chunks=(10, 10),
+            shards=(100, 100),
+            overwrite=True,
         )
         self.root.create_array(
             f"{station}/{channel}/lag_values",
             data=lag_matrix,
-            chunks=(100, 100),
-            shards=(1000, 1000),
+            chunks=(10, 10),
+            shards=(100, 100),
+            overwrite=True,
         )
 
-    def slice_by_station_and_channel(
-        self, with_corr_file_index: bool = True
-    ) -> List[CorrelationSlice]:
+    ### SLICE
+
+    def slice_by_station_and_channel(self, with_corr_file_index: bool = True):
 
         slice_dict = {}
 
@@ -325,203 +219,122 @@ class SeismicCorrelationFile:
                     int(event_index)
                 )
 
-        # Correlation slice list to return
-        # slice_list = []
-
-        # for station_id, station in stations:
-        #     traces = [
-        #         request
-        #         for request in self.cursor.execute(
-        #             f"SELECT * FROM traces WHERE station_id = {station_id}"
-        #         )
-        #     ]
-
-        #     channels_per_station = np.unique([trace[3] for trace in traces])
-
-        #     for channel_id in channels_per_station:
-        #         traces_per_channel = [
-        #             trace for trace in traces if trace[3] == channel_id
-        #         ]
-        #         if with_corr_file_index:
-        #             slice_list.append(
-        #                 {
-        #                     "station": (station_id, station),
-        #                     "channel": [
-        #                         channel_tuple
-        #                         for channel_tuple in channels
-        #                         if channel_tuple[0] == channel_id
-        #                     ][0],
-        #                     "events": [
-        #                         event_tuple
-        #                         for event_tuple in events
-        #                         if event_tuple[0]
-        #                         in [trace[1] for trace in traces_per_channel]
-        #                     ],
-        #                     "excluded_events": [
-        #                         event_tuple
-        #                         for event_tuple in events
-        #                         if event_tuple[0]
-        #                         not in [trace[1] for trace in traces_per_channel]
-        #                     ],
-        #                     "traces": [trace for trace in traces_per_channel],
-        #                 }
-        #             )
-
         return slice_dict
 
-    def get_stations(self, as_df=True, include_channels: bool = False):
+    ### GET
 
-        if not self.is_seismic:
-            raise NotImplementedError(
-                "This correlation file is not configured for seismic data"
+    def get_stations(self, as_df=True, include_channels: bool = False):
+        stations = self.root.attrs["stations"]
+
+        if as_df:
+            stations_df = pd.DataFrame.from_records(
+                [(index, name) for index, name in stations.items()],
+                columns=["index", "name"],
+                index="index",
             )
 
-        # load stations
-        stations = [
-            request for request in self.cursor.execute("SELECT * FROM stations")
-        ]
-
-        if not include_channels:  # exit and return now
-            if as_df:
-                stations_df = pd.DataFrame.from_records(
-                    stations, columns=["index", "name"]
-                )
-
-                return stations_df
-            else:
-                return stations
-
-        # load channels
-        channels = self.get_channels(as_df=False)
-
-        station_array = []
-        for station_id, station in stations:
-            station_dict = {}
-
-            station_dict["station"] = (station_id, station)
-
-            traces = [
-                request
-                for request in self.cursor.execute(
-                    f"SELECT * FROM traces WHERE station_id = {station_id}"
-                )
-            ]
-
-            channels_per_station = np.unique([trace[3] for trace in traces])
-
-            station_dict["channels"] = [
-                channel for channel in channels if channel[0] in channels_per_station
-            ]
-
-            station_array.append(station_dict)
-
-        if as_df:
-            raise NotImplementedError
+            return stations_df
         else:
-            return station_array
+            return stations
 
     def get_channels(self, as_df=True):
-        channels = [
-            request for request in self.cursor.execute("SELECT * FROM channels")
-        ]
+        channels = self.root.attrs["channels"]
 
         if as_df:
-            channels_df = pd.DataFrame.from_records(channels, columns=["index", "name"])
+            channels_df = pd.DataFrame.from_records(
+                [(index, name) for index, name in channels.items()],
+                columns=["index", "name"],
+                index="index",
+            )
 
             return channels_df
         else:
             return channels
 
-    def get_events(self, as_df: bool = True, expand_from_catalog: bool = False):
+    def get_events(self, as_df: bool = True):
         events = self.root.attrs["events"]
 
         if as_df:
-            raise NotImplementedError
+            events_df = pd.DataFrame.from_records(
+                [(index, name) for index, name in events.items()],
+                columns=["index", "name"],
+                index="index",
+            )
+
+            return events_df
         else:
             return events
 
-    def get_correlations(self, as_df: bool = True, where: str | None = None):
-        correlations = [
-            request
-            for request in self.cursor.execute(
-                f"SELECT * FROM correlations {'WHERE ' + where if where else ''}"
-            )
-        ]
-
-        if as_df:
-            correlations_df = pd.DataFrame.from_records(
-                correlations,
-                columns=[
-                    "index",
-                    "primary_trace_id",
-                    "secondary_trace_id",
-                    "correlation_value",
-                    "lag",
-                ],
-            )
-
-            return correlations_df
-        else:
-            return correlations
-
-    def get_cross_channel_correlations(
+    def get_correlation_matrix(
         self,
-        out_dir: str | Path = "correlation_plots",
-        out_filename: str | Path = "cross_channel_correlation.png",
-    ):
-        raise NotImplementedError
+        stations: Literal["all"] | List[str] = "all",
+        channels: Literal["all", "all_horiz", "all_vert"] | List[str] = "all",
+        horizontal_channels_postfix: List[str] = ["E", "N", "1", "2"],
+        vertical_channels_postfix: List[str] = ["Z", "3"],
+    ) -> np.ndarray | List[CorrMatrixDict]:
+        corr_matrix_list = []
 
-        # ensure pathlib objects
-        out_dir = Path(out_dir)
-        out_filename = Path(out_filename)
+        if stations == "all":
+            stations = list(self.root.group_keys())
 
-        events = self.get_events(as_df=False, get_traces=True)
+        for station_name in stations:
+            if station_name in self.root:
+                if (
+                    channels == "all"
+                    or channels == "all_horiz"
+                    or channels == "all_vert"
+                ):
+                    for channel_name, group in self.root[station_name].groups():
+                        if channels == "all_horiz" and not channel_name.endswith(
+                            tuple(horizontal_channels_postfix)
+                        ):
+                            continue  # skip iteration if not horizontal channel code
+                        elif channels == "all_vert" and not channel_name.endswith(
+                            tuple(vertical_channels_postfix)
+                        ):
+                            continue  # skip iteration if not vertical channel code
 
-        correllation_matrix = np.empty((len(events), len(events)))
-        correllation_matrix[:] = np.nan
-
-        for i, primary_event in enumerate(events):
-            for j, secondary_event in enumerate(events):
-                print(i, j)
-
-                self.cursor.execute(
-                    "SELECT *  FROM correlations WHERE primary_trace_id IN ({}) INTERSECT SELECT *  FROM correlations WHERE secondary_trace_id IN ({})".format(
-                        str([trace[0] for trace in primary_event["traces"]])[1:-1],
-                        str([trace[0] for trace in secondary_event["traces"]])[1:-1],
-                    )
+                        corr_matrix_list.append(
+                            {
+                                "station": station_name,
+                                "channel": channel_name,
+                                "corr_matrix": group["corr_values"][:],
+                            }
+                        )
+                else:
+                    for channel_name in channels:
+                        if channel_name in self.root[station_name]:
+                            corr_matrix_list.append(
+                                {
+                                    "station": station_name,
+                                    "channel": channel_name,
+                                    "corr_matrix": self.root[station_name][
+                                        channel_name
+                                    ]["corr_values"][:],
+                                }
+                            )
+                        else:
+                            logger.warning(
+                                "channel %s is not available for station %s in this correlation file",
+                                channel_name,
+                                station_name,
+                            )
+            else:
+                logger.warning(
+                    "stations %s is not available in this correlation file",
+                    station_name,
                 )
 
-                correlations = self.cursor.fetchall()
+        if len(corr_matrix_list) > 1:
+            return corr_matrix_list
+        elif len(corr_matrix_list) == 1:
+            return corr_matrix_list[0]["corr_matrix"]
+        else:
+            logger.warning(
+                "No correlation matrices with these search parameters are available in this correlation file"
+            )
 
-                if correlations:
-                    mean_corr_val = np.mean(
-                        [correlation[4] for correlation in correlations]
-                    )
-
-                    correllation_matrix[i, j] = mean_corr_val
-
-        fig = figure(figsize=(7, 7), layout="constrained")
-
-        ax = fig.add_subplot()
-
-        ax.xaxis.tick_top()
-        ax.xaxis.set_label_position("top")
-
-        crmat = ax.imshow(correllation_matrix, vmin=0, vmax=1, cmap="viridis")
-
-        cbar = fig.colorbar(crmat, ax=ax, shrink=0.6)
-        cbar.ax.set_ylabel("correlation value")
-
-        ax.set_title("correlations, cross-channel")
-
-        ax.set_xlabel("event index")
-        ax.set_ylabel("event index")
-
-        fig.savefig(out_dir / out_filename, bbox_inches="tight")
-
-        close()
-
-        return correllation_matrix
+    ### PLOT
 
     def plot_by_station_and_channel(
         self,
@@ -657,3 +470,6 @@ class SeismicCorrelationFile:
                 fig.savefig(out_dir / out_filename, bbox_inches="tight")
 
             close()
+
+    def _plot_single_corr_matrix(self, corr_matrix):
+        pass
