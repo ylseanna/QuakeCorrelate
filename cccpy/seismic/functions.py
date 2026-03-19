@@ -73,6 +73,6 @@ def cross_correlate_seismic_events(
         channels=channels,
     )
 
-    correlator.cross_correlate(stream_dict, plot=plot_corr_matrix, length=2.5, interpolate=2)
-
-    
+    correlator.cross_correlate(
+        stream_dict, plot=plot_corr_matrix, length=2.5, interpolate=2
+    )

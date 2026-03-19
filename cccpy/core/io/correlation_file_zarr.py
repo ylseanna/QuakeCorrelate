@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import List, Literal, Tuple, TypedDict
+from typing import List, Literal, TypedDict
 
 import numpy as np
 import pandas as pd
