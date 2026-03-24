@@ -25,19 +25,26 @@ class SeismicCorrelator:
         stations: List[str] | None = None,
         channels: List[str] | None = None,
     ):
+        logger.info("Initialising Seismic Correlator")
         corr_file = Path(corr_file)
 
+        logger.info(
+            f"Creating .zar directory at {corr_file}, overwriting?: {overwrite_corr_file}"
+        )
         self.correlation_file = SeismicCorrelationFile(
             filename=corr_file, overwrite_file=overwrite_corr_file
         )
 
         if catalog is not None:
+            logger.debug(f"Writing catalog metadata {catalog}")
             self.correlation_file.write_catalog(catalog)
 
         if stations is not None:
+            logger.debug(f"Writing station metadata {stations}")
             self.correlation_file.write_stations(stations)
 
         if channels is not None:
+            logger.debug(f"Writing channel metadata {channels}")
             self.correlation_file.write_channels(channels)
 
     def cross_correlate(
@@ -56,22 +63,27 @@ class SeismicCorrelator:
         out_filename = Path(out_filename)
 
         # get julia
+        logger.info("Accessing Julia")
         jl = JuliaInterface()
 
         # write streams
+        logger.debug("Writing stream metadata")
         self.correlation_file.write_events(list(stream_dict.keys()))
 
         # get event data
         events = self.correlation_file.get_events(as_df=False)
 
         # get slices
+        logger.info("Slicing by station and channel")
         per_station_slices = self.correlation_file.slice_by_station_and_channel()
 
         # NOTE: ceil to power of 2 for shift_len
 
         for station, per_channel_slice in per_station_slices.items():
             for channel, event_indices in per_channel_slice.items():
-                print(f"--- Correlating for station {station}, channel {channel} ---")
+                logger.info(
+                    f"--- Correlating for station {station}, channel {channel} ---"
+                )
 
                 ### get all traces from which we need to take the data (sort by channel, station and all event indices in slice)
                 traces_sliced = [
@@ -103,7 +115,7 @@ class SeismicCorrelator:
 
                 sampling_rate = unique_sampling_rates[0]
 
-                print(f"       sampling rate: {sampling_rate:<11.1f} Hz")
+                logger.info(f"       sampling rate: {sampling_rate:<11.1f} Hz")
 
                 # num samples and start and end of slicing
 
@@ -123,7 +135,7 @@ class SeismicCorrelator:
 
                 num_samples = end - start
 
-                print(
+                logger.info(
                     f"       num samples:   {num_samples:<11n} (sliced from {max_npts}, start: {start}, end: {end})"
                     if max_npts != num_samples
                     else ""
@@ -157,7 +169,7 @@ class SeismicCorrelator:
                 ### interpolate (if set)
 
                 if interpolate:
-                    print(f"    Interpolating to {interpolate} subdivisions...")
+                    logger.info(f"    Interpolating to {interpolate} subdivisions...")
                     pre_interp_time = time.time()
 
                     interpolator = CubicSpline(list(range(data.shape[0])), data)
@@ -168,7 +180,7 @@ class SeismicCorrelator:
 
                     post_interp_time = time.time()
 
-                    print(
+                    logger.info(
                         f"    Interpolation complete!         (in {post_interp_time - pre_interp_time:.3g} s)"
                     )
 
@@ -177,9 +189,13 @@ class SeismicCorrelator:
                     data = interpolated_data
 
                     # print new effective rates
-                    print(f"       sampling rate: {sampling_rate:<11.1f} Hz (effective)")
+                    logger.info(
+                        f"       sampling rate: {sampling_rate:<11.1f} Hz (effective)"
+                    )
 
-                    print(f"       num samples:   {interpolated_data.shape[0]:<11n}")
+                    logger.info(
+                        f"       num samples:   {interpolated_data.shape[0]:<11n}"
+                    )
 
                 ### do correlation and time it
 
@@ -187,11 +203,11 @@ class SeismicCorrelator:
                     int(ceil(shift_len * sampling_rate))
                 )
 
-                print(
+                logger.info(
                     f"       shift length:  {shift_len:<11.1f} s (ceiled to {shift_len_samples} samples)"
                 )
 
-                print("    Correlating on GPU...")
+                logger.info("    Correlating on GPU...")
 
                 pre_corr_time = time.time()
 
@@ -211,7 +227,7 @@ class SeismicCorrelator:
 
                 post_corr_time = time.time()
 
-                print(
+                logger.info(
                     f"    Correlation complete!         (in {post_corr_time - pre_corr_time:.3g} s)"
                 )
 
@@ -236,7 +252,7 @@ class SeismicCorrelator:
                     channel=channel,
                 )
 
-                print("    Correlations written to disk...")
+                logger.info("    Correlations written to disk...")
 
                 if plot:
                     Path("./correlation_plots").mkdir(exist_ok=True, parents=True)
@@ -306,7 +322,7 @@ class SeismicCorrelator:
 
                     del fig
 
-                    print("    plotted cross correlation matrix!")
+                    logger.info("    plotted cross correlation matrix!")
 
         # if plot:
         #     fig = figure(figsize=(7, 7), layout="constrained")
