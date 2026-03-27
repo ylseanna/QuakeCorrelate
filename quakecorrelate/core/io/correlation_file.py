@@ -19,7 +19,8 @@ class CorrMatrixDict(TypedDict):
     corr_matrix: np.ndarray
 
 
-class SeismicCorrelationFile:
+class CorrelationFile:
+    "Correlation File interface"
     def __init__(
         self,
         filename: str | Path | None,

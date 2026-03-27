@@ -1,7 +1,7 @@
 from typing import Literal
 import numpy as np
 
-from .interface import JuliaInterface
+from . import JuliaInterface
 
 
 def ncc(

@@ -3,7 +3,7 @@ from typing import Literal, Dict, List
 from pathlib import Path
 import numpy as np
 
-from .seismic_correlator import SeismicCorrelator
+from .core import Correlator
 
 
 def cross_correlate_seismic_events(
@@ -65,7 +65,7 @@ def cross_correlate_seismic_events(
         )
         # find all the unique sorted channel ids among all the traces of all the streams
 
-    correlator = SeismicCorrelator(
+    correlator = Correlator(
         corr_file=corr_file,
         overwrite_corr_file=True,
         catalog=catalog,

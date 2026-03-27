@@ -3,7 +3,7 @@ from pathlib import Path
 
 from obspy import read, read_events, Catalog
 
-from quakecorrelate.seismic import cross_correlate_seismic_events
+from quakecorrelate import cross_correlate_seismic_events
 
 import logging
 import sys
@@ -15,7 +15,7 @@ stream_dict = dict()
 template_catalog = Catalog()
 
 for mseed_path in sorted(
-    Path("/home/yadevries/Software/CCC/cccpy/examples/test_data_bardarbunga_2017").glob("**/*_long.ms")
+    Path("/home/yadevries/Software/CCC/QuakeCorrelate/examples/test_data_bardarbunga_2017").glob("**/*_long.ms")
 ):
     event_id = mseed_path.stem
     stream = read(mseed_path, format="MSEED")
