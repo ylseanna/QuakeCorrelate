@@ -1,4 +1,4 @@
-from cccpy.cccpy.core.io.correlation_file_sqlite import CorrelationFile
+from quakecorrelate.core.io.correlation_file_sqlite import CorrelationFile
 
 correlation_file = CorrelationFile(filename="correlation.sqlite", seismic_data=True)
 

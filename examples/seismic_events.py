@@ -3,7 +3,7 @@ from pathlib import Path
 
 from obspy import read, read_events, Catalog
 
-from cccpy.seismic import cross_correlate_seismic_events
+from quakecorrelate.seismic import cross_correlate_seismic_events
 
 import logging
 import sys
