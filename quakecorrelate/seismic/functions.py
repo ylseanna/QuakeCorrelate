@@ -1,4 +1,4 @@
-from obspy import Stream
+from obspy import Stream, Catalog
 from typing import Literal, Dict, List
 from pathlib import Path
 import numpy as np
@@ -8,6 +8,7 @@ from .seismic_correlator import SeismicCorrelator
 
 def cross_correlate_seismic_events(
     stream_dict: Dict[str, Stream],
+    catalog: Catalog,
     corr_file: str | Path | None = None,
     method: Literal["time", "frequency"] = "time",
     platform: Literal["gpu", "cpu"] = "gpu",
@@ -20,6 +21,8 @@ def cross_correlate_seismic_events(
     Args:
         stream_dict (Dict[str, Stream]):
             A dictionary containing event streams keyed by their event id (string)
+        catalog (Obspy Catalog):
+            Obspy catalog containing (at least) all the events that will be correlated (may contain more).
         outfile (str, Path, None, optional):
             Determines which correlation file to output your correlations to, if None is passed the correlations will return as a dictionary in-memory.
         method ([&quot;time&quot;, &quot;frequency&quot;], optional):
@@ -37,7 +40,7 @@ def cross_correlate_seismic_events(
     if corr_file:
         corr_file = Path(corr_file)
     else:
-        corr_file = Path("./correlation.sqlite")
+        corr_file = Path("./correlations.zarr")
 
     # organise data
     if not stationfile:
@@ -65,8 +68,11 @@ def cross_correlate_seismic_events(
     correlator = SeismicCorrelator(
         corr_file=corr_file,
         overwrite_corr_file=True,
+        catalog=catalog,
         stations=stations,
         channels=channels,
     )
 
-    correlator.cross_correlate(stream_dict, plot=plot_corr_matrix)
+    correlator.cross_correlate(
+        stream_dict, plot=plot_corr_matrix
+    )

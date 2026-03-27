@@ -1,6 +1,8 @@
 # outputs
 *.png
 *.sqlite
+*.zarr
+correlation_plots*
 #
 #examples
 examples/test_data*

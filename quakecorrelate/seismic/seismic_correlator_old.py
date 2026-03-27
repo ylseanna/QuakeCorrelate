@@ -5,7 +5,7 @@ import numpy as np
 from matplotlib.pyplot import close, figure
 
 from ..core.interface import Julia
-from ..core.io import CorrelationFile
+from ..core.io.correlation_file_zarr import CorrelationFile
 
 
 class SeismicCorrelator:

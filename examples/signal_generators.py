@@ -1,13 +1,13 @@
 import numpy as np
 from matplotlib.pyplot import figure
 
-import cccpy
+import quakecorrelate
 
 samp_freq = 500
 event_duration = 1
 
 # call julia
-event, etime = cccpy.signals.random_event(
+event, etime = quakecorrelate.signals.random_event(
     np.arange(1, 5),
     np.arange(1, 180),
     np.arange(0.1, 1, 0.1),
@@ -16,9 +16,9 @@ event, etime = cccpy.signals.random_event(
     3,
 )
 
-trace, time = cccpy.signals.add_padding(event, 3, 2)
+trace, time = quakecorrelate.signals.add_padding(event, 3, 2)
 
-event_noise = cccpy.signals.add_noise(
+event_noise = quakecorrelate.signals.add_noise(
     trace,
     np.arange(20, 35, 0.1),
     np.arange(1, 180),

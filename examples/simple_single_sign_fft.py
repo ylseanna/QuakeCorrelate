@@ -1,7 +1,7 @@
 import numpy as np
 from matplotlib.pyplot import figure
 
-import cccpy
+import quakecorrelate
 
 # template
 vals = np.arange(0, 20, 0.1)
@@ -26,7 +26,7 @@ lags = np.zeros(len(signal_vec))
 corrgrams = np.zeros((len(signal_vec), len(signal_1)))
 
 # run cross correlation
-results, lags, corrgrams = cccpy.ncc(template, signal_vec, method="frequency", return_corrgrams=True)
+results, lags, corrgrams = quakecorrelate.ncc(template, signal_vec, method="frequency", return_corrgrams=True)
 
 # plot
 

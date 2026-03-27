@@ -28,3 +28,4 @@ SQLAlchemy==1.4.54
 urllib3==2.5.0
 pandas
 dotenv
+zarr
