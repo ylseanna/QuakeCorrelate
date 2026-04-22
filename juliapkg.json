@@ -1,3 +1,9 @@
 {
-    "julia": "1.12.1"
+    "julia": "1.12.1",
+    "packages": {
+        "Squiggles": {
+            "uuid": "d934da09-a6a1-40ff-a16a-ac00174578b4",
+            "url" : "git@github.com:gbene/Squiggles.jl.git"
+        }
+    }
 }

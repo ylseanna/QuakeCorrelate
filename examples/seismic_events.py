@@ -32,7 +32,7 @@ if stream_dict:
     start = time.time()
 
     cross_correlate_seismic_events(
-        stream_dict, template_catalog, plot_corr_matrix=False
+        stream_dict, template_catalog, plot_corr_matrix=True
     )
 
     end = time.time()

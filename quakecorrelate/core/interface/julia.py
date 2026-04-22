@@ -1,34 +1,52 @@
 import logging
+from os import environ
+
+from dotenv import load_dotenv
+from juliacall import Main as jl
+from juliacall import Pkg as jlPkg
+
+# from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-def JuliaInterface():
-    from os import environ
 
-    from dotenv import load_dotenv
-    from juliacall import Main as jl
-    from juliacall import Pkg as jlPkg
-    from juliacall import newmodule
-
+def JuliaInterface(update: bool = False):
     load_dotenv()
 
-    # set julia environments
-    if environ.get("CCC_TYPE") == "path":
-        logger.debug(f"Retrieving CCC from the path provided {environ.get('CCC_PATH')}")
-        # activate environment
-        logger.debug("Activating packages from CCC environment")
-        jlPkg.activate(environ.get("CCC_PATH"))
+    installed_julia_packages = dict(jlPkg.installed()).keys()
+    logger.debug(f"Installed Julia packages: {installed_julia_packages}")
 
-        # jlPkg.add("IntervalArithmetic")
+    if (
+        "Squiggles" not in installed_julia_packages
+        or environ.get("GPU_ARCH") not in installed_julia_packages
+    ):
+        logger.info("Not all packages found, adding Julia packages...")
 
-        # activate CCC package
-        logger.debug("Activating CCC")
-        newmodule(environ.get("CCC_PATH"))
+        if "Squiggles" not in installed_julia_packages:
+            jlPkg.add(url="git@github.com:gbene/Squiggles.jl.git")
 
-        # logger.debug("Resolving jlPkg")
-        # jlPkg.resolve()
-        
-        logger.debug("Setting Julia to use CCC")
-        jl.seval("using CCC")
+        if environ.get("GPU_ARCH") == "CUDA" and "CUDA" not in installed_julia_packages:
+            jlPkg.add("CUDA")
+        elif (
+            environ.get("GPU_ARCH") == "Metal"
+            and "Metal" not in installed_julia_packages
+        ):
+            jlPkg.add("Metal")
+            
+    if update:
+        jlPkg.update()
+
+    logger.debug("Resolving jlPkg")
+    jlPkg.resolve()
+
+    logger.debug("Setting Julia to use Squiggles")
+    jl.seval("using Squiggles")
+
+    if environ.get("GPU_ARCH") == "CUDA":
+        jl.seval("using CUDA")
+    elif environ.get("GPU_ARCH") == "Metal":
+        jl.seval("using Metal")
+
+    jl.Squiggles.set_GPUbackend()
 
     return jl

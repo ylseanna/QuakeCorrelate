@@ -1,4 +1,5 @@
 from typing import Dict
+import numpy as np
 
 
 def ensure_unique_values(inp: Dict) -> Dict:
@@ -24,3 +25,13 @@ def ensure_unique_values(inp: Dict) -> Dict:
 
 def next_power_of_2(x: int) -> int:
     return 1 if x == 0 else 2 ** (x - 1).bit_length()
+
+def to_length(array, length):
+    array = np.asarray(array)
+    
+    out_array = np.zeros(length, dtype=array.dtype)
+    
+    m = min(length, len(array))
+    
+    out_array[:m] = array[:m]
+    return out_array

@@ -11,13 +11,14 @@ from scipy.interpolate import CubicSpline
 
 from .interface import JuliaInterface
 from .io.correlation_file import CorrelationFile
-from ..util.helper_functions import next_power_of_2
+from ..util.helper_functions import next_power_of_2, to_length
 
 logger = logging.getLogger(__name__)
 
 
 class Correlator:
     "Correlator Class"
+
     def __init__(
         self,
         corr_file: str | Path = Path("correlations.zarr"),
@@ -101,11 +102,35 @@ class Correlator:
                     ]
                 ]
 
+                logger.info(f"    number of traces: {len(traces_sliced):<11n}")
+
+                logger.info("    Collecting trace metadata...")
+
                 ### calculate relevant values for processing based on input arguments
 
                 # get required metadata
                 sampling_rates = [trace.stats.sampling_rate for trace in traces_sliced]
                 nptss = [trace.stats.npts for trace in traces_sliced]
+                trace_lengths = [
+                    trace.stats.npts * trace.stats.delta for trace in traces_sliced
+                ]
+
+                # trace lengths
+                unique_trace_lengths, unique_trace_lengths_counts = np.unique(
+                    trace_lengths, return_counts=True
+                )
+
+                if len(unique_trace_lengths) > 1:
+                    logger.warning(
+                        "Inhomogeneous trace lengths, continuing with most frequent, but be aware..."
+                    )
+                    trace_length = unique_trace_lengths[
+                        np.argmax(unique_trace_lengths_counts)
+                    ]
+                else:
+                    trace_length = unique_trace_lengths[0]
+
+                logger.info(f"        trace length: {trace_length:<11.1f} s")
 
                 # sampling rate
                 unique_sampling_rates = np.unique(sampling_rates)
@@ -118,85 +143,85 @@ class Correlator:
 
                 logger.info(f"       sampling rate: {sampling_rate:<11.1f} Hz")
 
-                # num samples and start and end of slicing
-
                 # total length of all samples (can accomodate a few samples offset)
-                max_npts = max(nptss)
+                unique_nptss, unique_nptss_counts = np.unique(nptss, return_counts=True)
 
-                # if padding, start not at zero
-                start = int(padding * sampling_rate)
-
-                # if fixed template length is set, calculate length
-                if length:
-                    end = int(start + length * sampling_rate)
+                if len(unique_nptss) > 1:
+                    npts = unique_nptss[np.argmax(unique_nptss_counts)]
                 else:
-                    end = int(
-                        max_npts - padding * sampling_rate
-                    )  # go to end, unless padding
+                    npts = unique_nptss[0]
 
-                num_samples = end - start
+                logger.info(f"   number of samples: {npts:<11.1f}")
 
-                logger.info(
-                    f"       num samples:   {num_samples:<11n} (sliced from {max_npts}, start: {start}, end: {end})"
-                    if max_npts != num_samples
-                    else ""
-                )
+                # slicing
+
+                if length or padding:
+                    logger.info("    Slicing data...")
+
+                    if length:
+                        logger.info(f"    length to slice: {trace_length:<11.1f} s")
+
+                    if padding:
+                        logger.info(f"            padding: {trace_length:<11.1f} s")
+
+                    # num samples and start and end of slicing
+
+                    # if padding, start not at zero
+                    start = int(padding * sampling_rate)
+
+                    # if fixed template length is set, calculate length
+                    if length:
+                        end = int(start + length * sampling_rate)
+                    else:
+                        end = int(
+                            npts - padding * sampling_rate
+                        )  # go to end, unless padding
+
+                    num_samples = end - start
+
+                    logger.info(
+                        f"   number of samples: {num_samples:<11n} (sliced from {npts}, start: {start}, end: {end})"
+                    )
+                else:
+                    num_samples = npts
 
                 ### get data
+
+                logger.info("    Preparing data...")
 
                 data = []
 
                 # extract data from trace
-                for index, trace in enumerate(traces_sliced):
-                    trace_sliced = trace.data[start:end]
+                for trace in traces_sliced:
+                    if padding or length:
+                        trace_data = trace.data[start:end]
+                    else:
+                        trace_data = trace.data
 
                     if (
-                        len(trace_sliced) != num_samples
+                        len(trace_data) != num_samples
                     ):  # sometimes a single trace is of by a few samples (or improper length is set)
                         logger.warning(
-                            "One trace did not have the right number of samples (%s samples) for the requested length (%s samples), skipping",
-                            len(trace_sliced),
+                            "One trace did not have the right number of samples (%s samples) for the requested length (%s samples), padding, but be aware",
+                            len(trace_data),
                             num_samples,
                         )
-                        del event_indices[
-                            index
-                        ]  # remove this event from the events that are to be correlated
-                        continue
+                        # del event_indices[
+                        #     index
+                        # ]  # remove this event from the events that are to be correlated
+                        # continue
 
-                    data.append(trace_sliced)
+                    data.append(trace_data)
 
-                data = np.array(data).T  # ensure column indexing (for julia)
+                ### pad signal
 
-                ### interpolate (if set)
+                padded_npts = next_power_of_2(int(num_samples))
 
-                if interpolate:
-                    logger.info(f"    Interpolating to {interpolate} subdivisions...")
-                    pre_interp_time = time.time()
+                data = np.array([to_length(trace, padded_npts) for trace in data])
 
-                    interpolator = CubicSpline(list(range(data.shape[0])), data)
-
-                    interpolated_data = interpolator(
-                        np.linspace(0, data.shape[0], data.shape[0] * 2**interpolate)
-                    )
-
-                    post_interp_time = time.time()
-
-                    logger.info(
-                        f"    Interpolation complete!         (in {post_interp_time - pre_interp_time:.3g} s)"
-                    )
-
-                    # apply new values
-                    sampling_rate *= 2**interpolate
-                    data = interpolated_data
-
-                    # print new effective rates
-                    logger.info(
-                        f"       sampling rate: {sampling_rate:<11.1f} Hz (effective)"
-                    )
-
-                    logger.info(
-                        f"       num samples:   {interpolated_data.shape[0]:<11n}"
-                    )
+                logger.info(
+                    f"       signal length: {padded_npts:<11n} samples (zero-padded to nearest power of 2, {padded_npts / sampling_rate:.1f} s)"
+                )
 
                 ### do correlation and time it
 
@@ -205,26 +230,51 @@ class Correlator:
                 )
 
                 logger.info(
-                    f"       shift length:  {shift_len:<11.1f} s (ceiled to {shift_len_samples} samples)"
+                    f"        shift length: {shift_len_samples:<11n} samples (ceiled to nearest power of 2, {shift_len:.1f} s)"
                 )
+
+                logger.info(f"         array shape: {data.shape}")
+
+                ### transposing and converting data
+
+                data = jl.pyconvert(
+                    jl.Matrix, data.T
+                )  # ensure column indexing (for julia)
+
+                ### actual cross correlation
 
                 logger.info("    Correlating on GPU...")
 
                 pre_corr_time = time.time()
 
-                mat_cpu, lag_cpu = jl.CCC.ncc_cuda(
+                # run correlation
+                corrgrams_gpu = jl.Squiggles.norm_correlogram(
                     data, data, shift_len_samples, threads_per_block
                 )
 
+                # calculate lags
+                xcorcoeff_GPU, lags_GPU = jl.Squiggles.simplelags(
+                    corrgrams_gpu, shift_len_samples
+                )
+
+                # move to CPU from GPU
+                xcorcoeff = jl.Squiggles.memcopy(xcorcoeff_GPU)
+                lags = jl.Squiggles.memcopy(lags_GPU)
+                
+                # # reconstruct full matrix from reduced triangular representation
+                # xcorcoeff = jl.Squiggles.reconstruct_nodiag(xcorcoeff_reduced)
+                # lags = jl.Squiggles.reconstruct_nodiag(lags_reduced)
+
+                # cast to numpy array (back to python land yay)
                 corr_matrix = np.array(
-                    mat_cpu
+                    xcorcoeff
                 ).T  # convert julia array and revert to row indexing
                 lag_matrix = np.array(
-                    lag_cpu
+                    lags, dtype=np.float64
                 ).T  # convert julia array and revert to row indexing
 
                 # convert lags from samples to seconds
-                lag_matrix *= sampling_rate
+                lag_matrix *= float(sampling_rate)
 
                 post_corr_time = time.time()
 
@@ -265,7 +315,7 @@ class Correlator:
                     ax.xaxis.tick_top()
                     ax.xaxis.set_label_position("top")
 
-                    crmat = ax.imshow(corr_matrix, vmin=0, vmax=1, cmap="viridis")
+                    crmat = ax.imshow(corr_matrix, vmin=-1, vmax=1, cmap="berlin")
 
                     cbar = fig.colorbar(crmat, ax=ax, shrink=0.6)
                     cbar.ax.set_ylabel("correlation value")
