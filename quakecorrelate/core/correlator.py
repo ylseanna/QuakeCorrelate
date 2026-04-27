@@ -2,18 +2,25 @@ import logging
 import time
 from math import ceil
 from pathlib import Path
-from typing import List
+from typing import List, Dict
 
 import numpy as np
-from matplotlib.pyplot import figure
-from obspy import Catalog
-from scipy.interpolate import CubicSpline
+from matplotlib import use as mpl_use
+from obspy import Catalog, Stream
 
-from .interface import JuliaInterface
-from .io.correlation_file import CorrelationFile
 from ..util.helper_functions import next_power_of_2, to_length
+from .interface import JuliaInterface
+from .correlation_file import CorrelationFile
+
+mpl_use("Agg")
+from matplotlib.pyplot import close, figure
+
+# from scipy.interpolate import CubicSpline
+
 
 logger = logging.getLogger(__name__)
+
+type EventID = str
 
 
 class Correlator:
@@ -51,7 +58,7 @@ class Correlator:
 
     def cross_correlate(
         self,
-        stream_dict,
+        stream_dict: Dict[EventID, Stream],
         length: float | None = None,
         padding: float = 0.0,
         shift_len: float = 1.0,
@@ -77,11 +84,13 @@ class Correlator:
 
         # get slices
         logger.info("Slicing by station and channel")
-        per_station_slices = self.correlation_file.slice_by_station_and_channel()
+        per_station_per_channel_slices = (
+            self.correlation_file.slice_traces_by_station_and_channel()
+        )
 
         # NOTE: ceil to power of 2 for shift_len
 
-        for station, per_channel_slice in per_station_slices.items():
+        for station, per_channel_slice in per_station_per_channel_slices.items():
             for channel, event_indices in per_channel_slice.items():
                 logger.info(
                     f"--- Correlating for station {station}, channel {channel} ---"
@@ -248,33 +257,37 @@ class Correlator:
                 pre_corr_time = time.time()
 
                 # run correlation
-                corrgrams_gpu = jl.Squiggles.norm_correlogram(
-                    data, data, shift_len_samples, threads_per_block
+                corrgrams_gpu_reduced = jl.Squiggles.norm_correlogram(
+                    data, shift_len_samples, threads_per_block
                 )
 
                 # calculate lags
-                xcorcoeff_GPU, lags_GPU = jl.Squiggles.simplelags(
-                    corrgrams_gpu, shift_len_samples
+                xcorcoeff_GPU_reduced, lags_GPU_reduced = jl.Squiggles.simplelags(
+                    corrgrams_gpu_reduced, shift_len_samples
                 )
 
                 # move to CPU from GPU
-                xcorcoeff = jl.Squiggles.memcopy(xcorcoeff_GPU)
-                lags = jl.Squiggles.memcopy(lags_GPU)
+                xcorcoeff_reduced = jl.Squiggles.memcopy(xcorcoeff_GPU_reduced)
+                lags_reduced = jl.Squiggles.memcopy(lags_GPU_reduced)
                 
-                # # reconstruct full matrix from reduced triangular representation
-                # xcorcoeff = jl.Squiggles.reconstruct_nodiag(xcorcoeff_reduced)
-                # lags = jl.Squiggles.reconstruct_nodiag(lags_reduced)
+                # # move to CPU from GPU
+                # xcorcoeff= jl.Squiggles.memcopy(xcorcoeff_GPU_reduced)
+                # lags = jl.Squiggles.memcopy(lags_GPU_reduced)
+
+                # reconstruct full matrix from reduced triangular representation
+                xcorcoeff = jl.Squiggles.reconstruct_symmetric(xcorcoeff_reduced)
+                lags = jl.Squiggles.reconstruct_antisymmetric(lags_reduced)
 
                 # cast to numpy array (back to python land yay)
                 corr_matrix = np.array(
-                    xcorcoeff
-                ).T  # convert julia array and revert to row indexing
+                    xcorcoeff, dtype=np.float32
+                )  # convert julia array and revert to row indexing
                 lag_matrix = np.array(
-                    lags, dtype=np.float64
-                ).T  # convert julia array and revert to row indexing
+                    lags, dtype=np.float32
+                )  # convert julia array and revert to row indexing
 
                 # convert lags from samples to seconds
-                lag_matrix *= float(sampling_rate)
+                lag_matrix *= float(1 / sampling_rate)
 
                 post_corr_time = time.time()
 
@@ -296,8 +309,15 @@ class Correlator:
                         sparse_corr_matrix[event_id_i, event_id_j] = corr_matrix[i, j]
                         sparse_lag_matrix[event_id_i, event_id_j] = lag_matrix[i, j]
 
+                ### write
+
                 self.correlation_file.write_correlation_matrix(
                     sparse_corr_matrix,
+                    station=station,
+                    channel=channel,
+                )
+
+                self.correlation_file.write_lag_matrix(
                     sparse_lag_matrix,
                     station=station,
                     channel=channel,
@@ -315,7 +335,7 @@ class Correlator:
                     ax.xaxis.tick_top()
                     ax.xaxis.set_label_position("top")
 
-                    crmat = ax.imshow(corr_matrix, vmin=-1, vmax=1, cmap="berlin")
+                    crmat = ax.imshow(corr_matrix, vmin=-1, vmax=1, cmap="RdBu")
 
                     cbar = fig.colorbar(crmat, ax=ax, shrink=0.6)
                     cbar.ax.set_ylabel("correlation value")
@@ -347,9 +367,9 @@ class Correlator:
 
                     crmat = ax.imshow(
                         (sparse_corr_matrix),
-                        vmin=0,
+                        vmin=-1,
                         vmax=1,
-                        cmap="viridis",
+                        cmap="RdBu",
                     )
 
                     cbar = fig.colorbar(crmat, ax=ax, shrink=0.6)
@@ -371,7 +391,7 @@ class Correlator:
                         )
                     )
 
-                    del fig
+                    close(fig)
 
                     logger.info("    plotted cross correlation matrix!")
 

@@ -32,12 +32,16 @@ def JuliaInterface(update: bool = False):
             and "Metal" not in installed_julia_packages
         ):
             jlPkg.add("Metal")
+        
+        logger.debug("Resolving jlPkg")
+        jlPkg.resolve()
+
             
     if update:
         jlPkg.update()
 
-    logger.debug("Resolving jlPkg")
-    jlPkg.resolve()
+        logger.debug("Resolving jlPkg")
+        jlPkg.resolve()
 
     logger.debug("Setting Julia to use Squiggles")
     jl.seval("using Squiggles")

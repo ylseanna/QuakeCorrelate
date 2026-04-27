@@ -9,7 +9,7 @@ from .core import Correlator
 def cross_correlate_seismic_events(
     stream_dict: Dict[str, Stream],
     catalog: Catalog,
-    corr_file: str | Path | None = None,
+    corr_file: str | Path = "./correlations.zarr",
     method: Literal["time", "frequency"] = "time",
     platform: Literal["gpu", "cpu"] = "gpu",
     stationfile: str | Path | None = None,
@@ -37,10 +37,7 @@ def cross_correlate_seismic_events(
             Determines whether to plot correlation matrices on the go
     """
     # manage args
-    if corr_file:
-        corr_file = Path(corr_file)
-    else:
-        corr_file = Path("./correlations.zarr")
+    corr_file = Path(corr_file)
 
     # organise data
     if not stationfile:
@@ -73,6 +70,4 @@ def cross_correlate_seismic_events(
         channels=channels,
     )
 
-    correlator.cross_correlate(
-        stream_dict, plot=plot_corr_matrix
-    )
+    correlator.cross_correlate(stream_dict, plot=plot_corr_matrix)

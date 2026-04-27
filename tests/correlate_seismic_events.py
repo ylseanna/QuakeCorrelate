@@ -8,7 +8,7 @@ from quakecorrelate import cross_correlate_seismic_events
 import logging
 import sys
 
-logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
 stream_dict = dict()
 
