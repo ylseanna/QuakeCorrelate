@@ -796,55 +796,56 @@ class CorrelationFile:
                         ]
 
                         if s_phase_channels:
-                            if len(p_phase_channels) > 1:
+                            if len(s_phase_channels) > 1:
                                 logger.warning(
-                                    f"more than 1 horizontal phase channel found: {p_phase_channels} for event pair {events[str(event_index_a)]} {events[str(event_index_b)]}, you may want to check"
+                                    f"more than 1 horizontal phase channel found: {s_phase_channels} for event pair {events[str(event_index_a)]} {events[str(event_index_b)]}, just so you know"
                                 )
+                                
+                            else:
+                                for channel_name in s_phase_channels:
+                                    # corr and lag values
+                                    corr_value = corr_values[station_name][channel_name]
+                                    lag_value = lag_values[station_name][channel_name]
 
-                            for channel_name in s_phase_channels:
-                                # corr and lag values
-                                corr_value = corr_values[station_name][channel_name]
-                                lag_value = lag_values[station_name][channel_name]
+                                    # catalog differential times
+                                    event_a_pick_time = UTCDateTime(
+                                        [
+                                            pick
+                                            for pick in event_a["picks"]
+                                            if pick["station_name"] == station_name
+                                            and pick["channel_name"] == channel_name
+                                            and pick["phase_hint"] == "S"
+                                        ][0]["time"]
+                                    )
 
-                                # catalog differential times
-                                event_a_pick_time = UTCDateTime(
-                                    [
-                                        pick
-                                        for pick in event_a["picks"]
-                                        if pick["station_name"] == station_name
-                                        and pick["channel_name"] == channel_name
-                                        and pick["phase_hint"] == "S"
-                                    ][0]["time"]
-                                )
+                                    event_b_pick_time = UTCDateTime(
+                                        [
+                                            pick
+                                            for pick in event_b["picks"]
+                                            if pick["station_name"] == station_name
+                                            and pick["channel_name"] == channel_name
+                                            and pick["phase_hint"] == "S"
+                                        ][0]["time"]
+                                    )
 
-                                event_b_pick_time = UTCDateTime(
-                                    [
-                                        pick
-                                        for pick in event_b["picks"]
-                                        if pick["station_name"] == station_name
-                                        and pick["channel_name"] == channel_name
-                                        and pick["phase_hint"] == "S"
-                                    ][0]["time"]
-                                )
+                                    catalog_differential_time = (
+                                        event_b_pick_time
+                                        - UTCDateTime(event_b["origin"]["time"])
+                                    ) - (
+                                        event_a_pick_time
+                                        - UTCDateTime(event_a["origin"]["time"])
+                                    )
 
-                                catalog_differential_time = (
-                                    event_b_pick_time
-                                    - UTCDateTime(event_b["origin"]["time"])
-                                ) - (
-                                    event_a_pick_time
-                                    - UTCDateTime(event_a["origin"]["time"])
-                                )
+                                    # weight value
+                                    if weight_value_type == "corr_squared":
+                                        weight_value = corr_value * corr_value
+                                    elif weight_value_type == "signed_corr_squared":
+                                        weight_value = abs(corr_value) * corr_value
 
-                                # weight value
-                                if weight_value_type == "corr_squared":
-                                    weight_value = corr_value * corr_value
-                                elif weight_value_type == "signed_corr_squared":
-                                    weight_value = abs(corr_value) * corr_value
-
-                                #
-                                dt_file.write(
-                                    f"{station_name:11s} {catalog_differential_time + lag_value} {weight_value} S\n"
-                                )
+                                    #
+                                    dt_file.write(
+                                        f"{station_name:11s} {catalog_differential_time + lag_value:7.4f} {weight_value:5.2f} S\n"
+                                    )
 
         # print(catalog)
 

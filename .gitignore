@@ -3,6 +3,8 @@
 *.sqlite
 *.zarr
 correlation_plots*
+./**/dt.cc
+./dt.cc
 #
 #examples
 examples/test_data*
