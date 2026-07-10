@@ -17,10 +17,7 @@ from matplotlib.pyplot import close, figure
 
 # from scipy.interpolate import CubicSpline
 
-
 logger = logging.getLogger(__name__)
-
-type EventID = str
 
 
 class Correlator:
@@ -58,7 +55,7 @@ class Correlator:
 
     def cross_correlate(
         self,
-        stream_dict: Dict[EventID, Stream],
+        stream_dict: Dict[str, Stream],
         length: float | None = None,
         padding: float = 0.0,
         shift_len: float = 1.0,
@@ -103,13 +100,22 @@ class Correlator:
                         for trace in stream
                         if trace.stats.channel == channel
                         and trace.stats.station == station
-                    ][0]
+                    ][0] if [
+                        trace
+                        for trace in stream
+                        if trace.stats.channel == channel
+                        and trace.stats.station == station
+                    ] else []
                     for stream in [
                         stream_dict[event_id]
                         for event_index, event_id in events.items()
                         if int(event_index) in event_indices
                     ]
                 ]
+
+                if any([False if len(trace) > 0 else True for trace in traces_sliced]):
+                    logger.warning("Zero length traces found - SKIPPING...")
+                    continue
 
                 logger.info(f"    number of traces: {len(traces_sliced):<11n}")
 
@@ -269,13 +275,13 @@ class Correlator:
                 # move to CPU from GPU
                 xcorcoeff_reduced = jl.Squiggles.memcopy(xcorcoeff_GPU_reduced)
                 lags_reduced = jl.Squiggles.memcopy(lags_GPU_reduced)
-                
+
                 # # move to CPU from GPU
                 # xcorcoeff= jl.Squiggles.memcopy(xcorcoeff_GPU_reduced)
                 # lags = jl.Squiggles.memcopy(lags_GPU_reduced)
 
                 # reconstruct full matrix from reduced triangular representation
-                xcorcoeff = jl.Squiggles.reconstruct_symmetric(xcorcoeff_reduced)
+                xcorcoeff = jl.Squiggles.reconstruct_symmetric(xcorcoeff_reduced, fillwithnans=False)
                 lags = jl.Squiggles.reconstruct_antisymmetric(lags_reduced)
 
                 # cast to numpy array (back to python land yay)
@@ -328,7 +334,7 @@ class Correlator:
                 if plot:
                     Path("./correlation_plots").mkdir(exist_ok=True, parents=True)
 
-                    fig = figure(figsize=(7, 7), layout="constrained")
+                    fig = figure(figsize=(5, 5), layout="constrained")
 
                     ax = fig.add_subplot()
 
@@ -358,7 +364,7 @@ class Correlator:
 
                     del fig
 
-                    fig = figure(figsize=(7, 7), layout="constrained")
+                    fig = figure(figsize=(5, 5), layout="constrained")
 
                     ax = fig.add_subplot()
 

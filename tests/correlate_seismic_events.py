@@ -1,28 +1,36 @@
+import logging
+import sys
 import time
 from pathlib import Path
 
-from obspy import read, read_events, Catalog
+from obspy import Catalog, read, read_events
 
 from quakecorrelate import cross_correlate_seismic_events
 
-import logging
-import sys
-
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+
+logger = logging.getLogger("root")
 
 stream_dict = dict()
 
 template_catalog = Catalog()
 
+logger.info("Reading templates...")
+
 for mseed_path in sorted(
-    Path("/home/yadevries/Software/CCC/QuakeCorrelate/examples/test_data_bardarbunga_2017").glob("**/*_long.ms")
+    Path("/home/yad2/data/templates/bardarbunga/EGU26/2013_239_to_2017_257/templates").glob("**/*.ms")
 ):
+    
     event_id = mseed_path.stem
+    
+    logger.info(f"Reading template {event_id}")
+    
     stream = read(mseed_path, format="MSEED")
 
     template_event_path = sorted(mseed_path.parent.glob("*.xml"))[0]
 
     template_event = read_events(template_event_path)[0]
+    
 
     stream_dict[template_event.resource_id.id] = stream
 

@@ -19,13 +19,6 @@ class CorrMatrixDict(TypedDict):
     corr_matrix: np.ndarray
 
 
-type StationName = str
-
-type ChannelName = str
-
-type EventIndex = int
-
-
 class CorrelationFile:
     "Correlation File interface"
 
@@ -218,15 +211,23 @@ class CorrelationFile:
 
     def slice_traces_by_station_and_channel(
         self, with_corr_file_index: bool = True
-    ) -> Dict[StationName, Dict[ChannelName, List[EventIndex]]]:
+    ) -> Dict[str, Dict[str, List[int]]]:
         """Method that slices the available traces for all available events by station and channel, listing only events per slice that contain a trace for that station and channel combination.
 
         Returns:
-            Dict[StationName, Dict[ChannelName, List[EventIndex]]]: A dictionary keyed by station names (str), where the values are dictionaries keyed by channel names (str), where the values are lists of event indices (str)
+            Dict[str, Dict[str, List[int]]]: A dictionary keyed by station names (str), where the values are dictionaries keyed by channel names (str), where the values are lists of event indices (str)
         """
         slice_dict = {}
 
         events = self.root.attrs["events"]
+
+        stations = list(self.get_stations(as_df=False).values())
+        
+        print(stations)
+
+        channels = list(self.get_channels(as_df=False).values())
+        
+        print(channels)
 
         catalog = self.root.attrs["catalog"]
 
@@ -234,15 +235,19 @@ class CorrelationFile:
             event_info = catalog[event_id]
 
             for pick in event_info["picks"]:
-                if pick["station_name"] not in slice_dict:
-                    slice_dict[pick["station_name"]] = dict()
+                if (
+                    pick["station_name"] in stations
+                    and pick["channel_name"] in channels
+                ):
+                    if pick["station_name"] not in slice_dict:
+                        slice_dict[pick["station_name"]] = dict()
 
-                if pick["channel_name"] not in slice_dict[pick["station_name"]]:
-                    slice_dict[pick["station_name"]][pick["channel_name"]] = list()
+                    if pick["channel_name"] not in slice_dict[pick["station_name"]]:
+                        slice_dict[pick["station_name"]][pick["channel_name"]] = list()
 
-                slice_dict[pick["station_name"]][pick["channel_name"]].append(
-                    int(event_index)
-                )
+                    slice_dict[pick["station_name"]][pick["channel_name"]].append(
+                        int(event_index)
+                    )
 
         return slice_dict
 
@@ -367,7 +372,7 @@ class CorrelationFile:
         channels: Literal["all", "all_horiz", "all_vert"] | List[str] = "all",
         horizontal_channels_postfix: Tuple[str] = ("E", "N", "1", "2"),
         vertical_channels_postfix: Tuple[str] = ("Z", "3"),
-    ) -> Dict[StationName, Dict[ChannelName, float]]:
+    ) -> Dict[str, Dict[str, float]]:
         correlation_dict = {}
 
         # dynamically get all available station names, or not
@@ -431,7 +436,7 @@ class CorrelationFile:
         channels: Literal["all", "all_horiz", "all_vert"] | List[str] = "all",
         horizontal_channels_postfix: Tuple[str] = ("E", "N", "1", "2"),
         vertical_channels_postfix: Tuple[str] = ("Z", "3"),
-    ) -> Dict[StationName, Dict[ChannelName, float]]:
+    ) -> Dict[str, Dict[str, float]]:
         lag_values_dict = {}
 
         # dynamically get all available station names, or not
@@ -800,7 +805,7 @@ class CorrelationFile:
                                 logger.warning(
                                     f"more than 1 horizontal phase channel found: {s_phase_channels} for event pair {events[str(event_index_a)]} {events[str(event_index_b)]}, just so you know"
                                 )
-                                
+
                             else:
                                 for channel_name in s_phase_channels:
                                     # corr and lag values

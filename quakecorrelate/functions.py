@@ -12,8 +12,11 @@ def cross_correlate_seismic_events(
     corr_file: str | Path = "./correlations.zarr",
     method: Literal["time", "frequency"] = "time",
     platform: Literal["gpu", "cpu"] = "gpu",
-    stationfile: str | Path | None = None,
+    stations: List[str] | None = None,
     channels: List[str] | None = None,
+    length: float | None = None,
+    padding: float = 0,
+    shift_len: float = 1,
     plot_corr_matrix: bool = False,
 ):
     """Function to calculate cross correlations for seismic events, on a per station, per component basis.
@@ -40,7 +43,7 @@ def cross_correlate_seismic_events(
     corr_file = Path(corr_file)
 
     # organise data
-    if not stationfile:
+    if stations is None:
         stations = np.unique(
             np.concatenate(
                 [
@@ -51,7 +54,7 @@ def cross_correlate_seismic_events(
         )
         # find all the unique sorted station ids among all the traces of all the streams
 
-    if not channels:
+    if channels is None:
         channels = np.unique(
             np.concatenate(
                 [
@@ -70,4 +73,4 @@ def cross_correlate_seismic_events(
         channels=channels,
     )
 
-    correlator.cross_correlate(stream_dict, plot=plot_corr_matrix)
+    correlator.cross_correlate(stream_dict, plot=plot_corr_matrix, length=length, padding=padding, shift_len=shift_len, out_filename="correlation.svg")

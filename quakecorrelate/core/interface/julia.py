@@ -9,10 +9,12 @@ from juliacall import Pkg as jlPkg
 
 logger = logging.getLogger(__name__)
 
+jl.eval("restart()")
+
 
 def JuliaInterface(update: bool = False):
     load_dotenv()
-
+    
     installed_julia_packages = dict(jlPkg.installed()).keys()
     logger.debug(f"Installed Julia packages: {installed_julia_packages}")
 
