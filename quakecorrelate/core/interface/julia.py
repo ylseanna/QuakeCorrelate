@@ -15,6 +15,10 @@ jl.eval("restart()")
 def JuliaInterface(update: bool = False):
     load_dotenv()
     
+
+    environ["PYTHON_JULIACALL_THREADS"] = "1"
+    environ["PYTHON_JULIACALL_HANDLE_SIGNALS"] = "yes"
+    
     installed_julia_packages = dict(jlPkg.installed()).keys()
     logger.debug(f"Installed Julia packages: {installed_julia_packages}")
 

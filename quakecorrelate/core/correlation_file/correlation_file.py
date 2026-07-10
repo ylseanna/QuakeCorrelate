@@ -1,4 +1,5 @@
 import logging
+import time
 from pathlib import Path
 from typing import Dict, List, Literal, Tuple, TypedDict
 
@@ -27,8 +28,8 @@ class CorrelationFile:
         filename: str | Path = "./correlations.zarr",
         in_memory: bool = False,
         overwrite_file: bool = False,
-        chunksize: int = 10,
-        shardsize: int = 100,
+        chunksize: int = 100,
+        shardsize: int = 1000,
     ):
         # args
         self.filename: Path = Path(filename)
@@ -212,6 +213,7 @@ class CorrelationFile:
     def slice_traces_by_station_and_channel(
         self, with_corr_file_index: bool = True
     ) -> Dict[str, Dict[str, List[int]]]:
+
         """Method that slices the available traces for all available events by station and channel, listing only events per slice that contain a trace for that station and channel combination.
 
         Returns:
@@ -374,17 +376,27 @@ class CorrelationFile:
         vertical_channels_postfix: Tuple[str] = ("Z", "3"),
     ) -> Dict[str, Dict[str, float]]:
         correlation_dict = {}
+        
+        time_a = time.time()
 
         # dynamically get all available station names, or not
         if stations == "all":
             station_names = list(self.root.group_keys())
         else:
             station_names = stations
+            
+        time_b = time.time()
+
+        print(
+            f"       Finished getting station names! (in {time_a - time_b:.3g} s)"
+        )
 
         for station_name in station_names:
             if station_name in self.root:
                 correlation_dict[station_name] = {}
 
+                time_a = time.time()
+                
                 # dynamically get all available channel names, or not
                 if (
                     channels == "all"
@@ -405,6 +417,14 @@ class CorrelationFile:
                         channel_names.append(channel_name)
                 else:
                     channel_names = channels
+                    
+                time_b = time.time()
+
+                print(
+                    f"       Finished getting channel names! (in {time_a - time_b:.3g} s)"
+                )
+                
+                time_a = time.time()
 
                 for channel_name in channel_names:
                     if channel_name in self.root[station_name]:
@@ -420,6 +440,11 @@ class CorrelationFile:
                             channel_name,
                             station_name,
                         )
+                time_b = time.time()
+
+                print(
+                    f"       Finished getting corr values! (in {time_a - time_b:.3g} s)"
+                )
             else:
                 logger.warning(
                     "stations %s is not available in this correlation file",
@@ -634,225 +659,306 @@ class CorrelationFile:
     def to_dtcc(
         self,
         outfile: str | Path = "./dt.cc",
-        event_id_mapping: Dict[str, str] | None = None,
+        event_id_mapping: Dict[str, str] | Literal["index"] | None = None,
+        lower_triangle: bool = True,
         stations: Literal["all"] | List[str] = "all",
         channels: Literal["all", "all_horiz", "all_vert"] | List[str] = "all",
+        min_corr_value: float = 0,
+        weight_value_type: Literal[
+            "corr_squared", "signed_corr_squared"
+        ] = "corr_squared",
+        horizontal_channels_postfix: Tuple[str] = ("E", "N", "1", "2"),
+        vertical_channels_postfix: Tuple[str] = ("Z", "3"),
+        tempdir: str | Path = "./.dtcc_chunks",
+    ):
+        # ensure arg types
+        outfile = Path(outfile)
+        tempdir = Path(tempdir)
+
+        self._write_dtcc_file(
+            outfile=outfile,
+            event_id_mapping=event_id_mapping,
+            lower_triangle=lower_triangle,
+            # primary_event_slice=(0,10),
+            stations=stations,
+            channels=channels,
+            min_corr_value=min_corr_value,
+            weight_value_type=weight_value_type,
+            horizontal_channels_postfix=horizontal_channels_postfix,
+            vertical_channels_postfix=vertical_channels_postfix,
+        )
+
+    def _write_dtcc_file(
+        self,
+        outfile: Path = "./dt.cc",
+        event_id_mapping: Dict[str, str] | Literal["index"] | None = None,
+        lower_triangle: bool = True,
+        primary_event_slice: Literal["all"] | Tuple[int, int] = "all",
+        secondary_events_slice: Literal["all"] | Tuple[int, int] = "all",
+        stations: Literal["all"] | List[str] = "all",
+        channels: Literal["all", "all_horiz", "all_vert"] | List[str] = "all",
+        min_corr_value: float = 0,
         weight_value_type: Literal[
             "corr_squared", "signed_corr_squared"
         ] = "corr_squared",
         horizontal_channels_postfix: Tuple[str] = ("E", "N", "1", "2"),
         vertical_channels_postfix: Tuple[str] = ("Z", "3"),
     ):
-        # ensure arg types
-        outfile = Path(outfile)
+        # retrieve metadata from file
+        events = self.root.attrs["events"]
+
+        event_indices = [int(index) for index in events.keys()]
+
+        # event_id_mapping
+        if event_id_mapping == "index":
+            event_id_mapping = {k: k for k in events.keys()}
+        elif event_id_mapping is None:
+            event_id_mapping = events
 
         # metadata
         events = self.root.attrs["events"]
 
         catalog = self.root.attrs["catalog"]
 
-        event_indices = [int(index) for index in events.keys()]
-
         # start writing file
         if not outfile.parent.exists():
             outfile.parent.mkdir(exist_ok=True, parents=True)
 
-        # event_pairs = [
-        #     (event_index_a, event_index_b)
-        #     for event_index_b in event_indices
-        #     for event_index_a in event_indices[:10]
-        #     if event_index_b < event_index_a
-        # ]
+        # assign which indices to process, slice if necessary
+        primary_event_indices = (
+            event_indices
+            if primary_event_slice == "all"
+            else event_indices[primary_event_slice[0]:primary_event_slice[1]]
+        )
 
-        # print(
-        #     [
-        #         [
-        #             (event_index_a, event_index_b)
-        #             for event_index_b in event_indices
-        #             if event_index_b < event_index_a
-        #         ]
-        #         for event_index_a in event_indices[:10]
-        #         if [
-        #             (event_index_a, event_index_b)
-        #             for event_index_b in event_indices
-        #             if event_index_b < event_index_a
-        #         ]
-        #     ]
-        # )
+        secondary_event_indices = (
+            event_indices
+            if secondary_events_slice == "all"
+            else event_indices[secondary_events_slice[0]:secondary_events_slice[1]]
+        )
 
-        # event_pairs = np.concat(
-        #     [
-        #         [
-        #             (event_index_a, event_index_b)
-        #             for event_index_b in event_indices
-        #             if event_index_b < event_index_a
-        #         ]
-        #         for event_index_a in event_indices[:10]
-        #         if [
-        #             (event_index_a, event_index_b)
-        #             for event_index_b in event_indices
-        #             if event_index_b < event_index_a
-        #         ]
-        #     ]
-        # )
-
-        # print(event_pairs)
-
+        # open file and run loop
         with outfile.open("+w") as dt_file:
-            for event_index_a in event_indices[:10]:
-                for event_index_b in [
-                    event_index
-                    for event_index in event_indices
-                    if event_index < event_index_a
-                ]:
-                    # print(
-                    #     f"\rWriting event pair: {events[str(event_index_a)]} - {events[str(event_index_b)]}",
-                    #     end="",
-                    # )
-                    # write header
-                    dt_file.write(
-                        f"# {events[str(event_index_a)]} {events[str(event_index_b)]} 0.0\n"
-                    )
-
-                    event_a = catalog[events[str(event_index_a)]]
-
-                    event_b = catalog[events[str(event_index_b)]]
-
-                    corr_values = self.get_single_event_pair_correlation_value(
+            for event_index_a in primary_event_indices:
+                for event_index_b in (
+                    [
+                        event_index
+                        for event_index in secondary_event_indices
+                        if event_index < event_index_a
+                    ]
+                    if lower_triangle
+                    else secondary_event_indices
+                ):
+                    self._write_single_event_pair_to_dtcc(
+                        dt_file,
+                        events,
+                        catalog,
                         event_index_a,
                         event_index_b,
+                        event_id_mapping=event_id_mapping,
                         stations=stations,
                         channels=channels,
+                        min_corr_value=min_corr_value,
+                        weight_value_type=weight_value_type,
                         horizontal_channels_postfix=horizontal_channels_postfix,
                         vertical_channels_postfix=vertical_channels_postfix,
                     )
 
-                    lag_values = self.get_single_event_pair_lag_values(
-                        event_index_a,
-                        event_index_b,
-                        stations=stations,
-                        channels=channels,
-                        horizontal_channels_postfix=horizontal_channels_postfix,
-                        vertical_channels_postfix=vertical_channels_postfix,
+        if event_id_mapping == "index":
+            return events
+        elif isinstance(event_id_mapping, dict):
+            return event_id_mapping
+
+    def _write_single_event_pair_to_dtcc(
+        self,
+        dt_file,
+        events: Dict[str, str],
+        catalog: Catalog,
+        event_index_a: str,
+        event_index_b: str,
+        event_id_mapping: Dict[str, str],
+        stations: Literal["all"] | List[str] = "all",
+        channels: Literal["all", "all_horiz", "all_vert"] | List[str] = "all",
+        min_corr_value: float = 0,
+        weight_value_type: Literal[
+            "corr_squared", "signed_corr_squared"
+        ] = "corr_squared",
+        horizontal_channels_postfix: Tuple[str] = ("E", "N", "1", "2"),
+        vertical_channels_postfix: Tuple[str] = ("Z", "3"),
+    ):
+        single_pair_text_block = ""
+
+        # write header
+        single_pair_text_block += f"# {event_id_mapping[str(event_index_a)]} {event_id_mapping[str(event_index_b)]} 0.0"
+        
+        print("Writing:", single_pair_text_block)
+        
+        time_a = time.time()
+
+        event_a = catalog[events[str(event_index_a)]]
+
+        event_b = catalog[events[str(event_index_b)]]
+
+        corr_values = self.get_single_event_pair_correlation_value(
+            event_index_a,
+            event_index_b,
+            stations=stations,
+            channels=channels,
+            horizontal_channels_postfix=horizontal_channels_postfix,
+            vertical_channels_postfix=vertical_channels_postfix,
+        )
+
+        lag_values = self.get_single_event_pair_lag_values(
+            event_index_a,
+            event_index_b,
+            stations=stations,
+            channels=channels,
+            horizontal_channels_postfix=horizontal_channels_postfix,
+            vertical_channels_postfix=vertical_channels_postfix,
+        )
+        
+        time_b = time.time()
+
+        print(
+            f"    Loading input values complete! (in {time_a - time_b:.3g} s)"
+        )
+        
+        time_a = time.time()
+
+        for station_name in corr_values.keys():
+            # start with p phase differential times
+            p_phase_channels = [
+                channel_name
+                for channel_name in corr_values[station_name].keys()
+                if channel_name.endswith(vertical_channels_postfix)
+            ]
+            if p_phase_channels:
+                if len(p_phase_channels) > 1:
+                    logger.warning(
+                        f"more than 1 vertical phase channel found: {p_phase_channels} for event pair {events[str(event_index_a)]} {events[str(event_index_b)]}, you may want to check"
                     )
 
-                    for station_name in corr_values.keys():
-                        # start with p phase differential times
-                        p_phase_channels = [
-                            channel_name
-                            for channel_name in corr_values[station_name].keys()
-                            if channel_name.endswith(vertical_channels_postfix)
-                        ]
-                        if p_phase_channels:
-                            if len(p_phase_channels) > 1:
-                                logger.warning(
-                                    f"more than 1 vertical phase channel found: {p_phase_channels} for event pair {events[str(event_index_a)]} {events[str(event_index_b)]}, you may want to check"
-                                )
+                for channel_name in p_phase_channels:
+                    # corr and lag values
+                    corr_value = corr_values[station_name][channel_name]
 
-                            for channel_name in p_phase_channels:
-                                # corr and lag values
-                                corr_value = corr_values[station_name][channel_name]
-                                lag_value = lag_values[station_name][channel_name]
+                    # stop writing if correlation value is not enough
+                    if corr_value < min_corr_value:
+                        continue
 
-                                # catalog differential times
-                                event_a_pick_time = UTCDateTime(
-                                    [
-                                        pick
-                                        for pick in event_a["picks"]
-                                        if pick["station_name"] == station_name
-                                        and pick["channel_name"] == channel_name
-                                        and pick["phase_hint"] == "P"
-                                    ][0]["time"]
-                                )
+                    lag_value = lag_values[station_name][channel_name]
 
-                                event_b_pick_time = UTCDateTime(
-                                    [
-                                        pick
-                                        for pick in event_b["picks"]
-                                        if pick["station_name"] == station_name
-                                        and pick["channel_name"] == channel_name
-                                        and pick["phase_hint"] == "P"
-                                    ][0]["time"]
-                                )
+                    # catalog differential times
+                    event_a_pick_time = UTCDateTime(
+                        [
+                            pick
+                            for pick in event_a["picks"]
+                            if pick["station_name"] == station_name
+                            and pick["channel_name"] == channel_name
+                            and pick["phase_hint"] == "P"
+                        ][0]["time"]
+                    )
 
-                                catalog_differential_time = (
-                                    event_b_pick_time
-                                    - UTCDateTime(event_b["origin"]["time"])
-                                ) - (
-                                    event_a_pick_time
-                                    - UTCDateTime(event_a["origin"]["time"])
-                                )
+                    event_b_pick_time = UTCDateTime(
+                        [
+                            pick
+                            for pick in event_b["picks"]
+                            if pick["station_name"] == station_name
+                            and pick["channel_name"] == channel_name
+                            and pick["phase_hint"] == "P"
+                        ][0]["time"]
+                    )
 
-                                # weight value
-                                if weight_value_type == "corr_squared":
-                                    weight_value = corr_value * corr_value
-                                elif weight_value_type == "signed_corr_squared":
-                                    weight_value = abs(corr_value) * corr_value
+                    catalog_differential_time = (
+                        event_b_pick_time - UTCDateTime(event_b["origin"]["time"])
+                    ) - (event_a_pick_time - UTCDateTime(event_a["origin"]["time"]))
 
-                                #
-                                dt_file.write(
-                                    f"{station_name:11s} {catalog_differential_time + lag_value} {weight_value} P\n"
-                                )
+                    # weight value
+                    if weight_value_type == "corr_squared":
+                        weight_value = corr_value * corr_value
+                    elif weight_value_type == "signed_corr_squared":
+                        weight_value = abs(corr_value) * corr_value
 
-                        s_phase_channels = [
-                            channel_name
-                            for channel_name in corr_values[station_name].keys()
-                            if channel_name.endswith(horizontal_channels_postfix)
-                        ]
+                    #
+                    single_pair_text_block += f"{station_name:11s} {catalog_differential_time + lag_value:7.4f} {weight_value:5.2f} P\n"
 
-                        if s_phase_channels:
-                            if len(s_phase_channels) > 1:
-                                logger.warning(
-                                    f"more than 1 horizontal phase channel found: {s_phase_channels} for event pair {events[str(event_index_a)]} {events[str(event_index_b)]}, just so you know"
-                                )
+            s_phase_channels = [
+                channel_name
+                for channel_name in corr_values[station_name].keys()
+                if channel_name.endswith(horizontal_channels_postfix)
+            ]
 
-                            else:
-                                for channel_name in s_phase_channels:
-                                    # corr and lag values
-                                    corr_value = corr_values[station_name][channel_name]
-                                    lag_value = lag_values[station_name][channel_name]
+            if s_phase_channels:
+                if len(s_phase_channels) > 1:
+                    logger.warning(
+                        f"more than 1 horizontal phase channel found: {s_phase_channels} for event pair {events[str(event_index_a)]} {events[str(event_index_b)]}, just so you know"
+                    )
 
-                                    # catalog differential times
-                                    event_a_pick_time = UTCDateTime(
-                                        [
-                                            pick
-                                            for pick in event_a["picks"]
-                                            if pick["station_name"] == station_name
-                                            and pick["channel_name"] == channel_name
-                                            and pick["phase_hint"] == "S"
-                                        ][0]["time"]
-                                    )
+                else:
+                    for channel_name in s_phase_channels:
+                        # corr and lag values
+                        corr_value = corr_values[station_name][channel_name]
 
-                                    event_b_pick_time = UTCDateTime(
-                                        [
-                                            pick
-                                            for pick in event_b["picks"]
-                                            if pick["station_name"] == station_name
-                                            and pick["channel_name"] == channel_name
-                                            and pick["phase_hint"] == "S"
-                                        ][0]["time"]
-                                    )
+                        # stop writing if correlation value is not enough
+                        if corr_value < min_corr_value:
+                            continue
 
-                                    catalog_differential_time = (
-                                        event_b_pick_time
-                                        - UTCDateTime(event_b["origin"]["time"])
-                                    ) - (
-                                        event_a_pick_time
-                                        - UTCDateTime(event_a["origin"]["time"])
-                                    )
+                        lag_value = lag_values[station_name][channel_name]
 
-                                    # weight value
-                                    if weight_value_type == "corr_squared":
-                                        weight_value = corr_value * corr_value
-                                    elif weight_value_type == "signed_corr_squared":
-                                        weight_value = abs(corr_value) * corr_value
+                        # catalog differential times
+                        event_a_pick_time = UTCDateTime(
+                            [
+                                pick
+                                for pick in event_a["picks"]
+                                if pick["station_name"] == station_name
+                                and pick["channel_name"] == channel_name
+                                and pick["phase_hint"] == "S"
+                            ][0]["time"]
+                        )
 
-                                    #
-                                    dt_file.write(
-                                        f"{station_name:11s} {catalog_differential_time + lag_value:7.4f} {weight_value:5.2f} S\n"
-                                    )
+                        event_b_pick_time = UTCDateTime(
+                            [
+                                pick
+                                for pick in event_b["picks"]
+                                if pick["station_name"] == station_name
+                                and pick["channel_name"] == channel_name
+                                and pick["phase_hint"] == "S"
+                            ][0]["time"]
+                        )
 
-        # print(catalog)
+                        catalog_differential_time = (
+                            event_b_pick_time - UTCDateTime(event_b["origin"]["time"])
+                        ) - (event_a_pick_time - UTCDateTime(event_a["origin"]["time"]))
+
+                        # weight value
+                        if weight_value_type == "corr_squared":
+                            weight_value = corr_value * corr_value
+                        elif weight_value_type == "signed_corr_squared":
+                            weight_value = abs(corr_value) * corr_value
+
+                        #
+                        single_pair_text_block += f"{station_name:11s} {catalog_differential_time + lag_value:7.4f} {weight_value:5.2f} S\n"
+
+
+        time_b = time.time()
+
+        print(
+            f"    Creating dtcc text block complete! (in {time_a - time_b:.3g} s)"
+        )
+
+        # flush text block
+        
+        time_a = time.time()
+        
+        if len(single_pair_text_block.split("\n")) > 1:
+            dt_file.write(single_pair_text_block)
+            
+        time_b = time.time()
+
+        print(
+            f"    Writing dtcc text block complete! (in {time_a - time_b:.3g} s)"
+        )
+
 
     def _plot_single_corr_matrix(self, corr_matrix):
         pass
