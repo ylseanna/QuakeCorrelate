@@ -1,6 +1,7 @@
 import logging
 import time
 from pathlib import Path
+from shutil import copyfileobj
 from typing import Dict, List, Literal, Tuple, TypedDict
 
 import numpy as np
@@ -8,8 +9,9 @@ import pandas as pd
 import zarr
 from matplotlib.pyplot import close, figure
 from obspy import Catalog, UTCDateTime
+from obspy.core.event import Event
 
-from ...util import ensure_unique_values
+from ...util import ensure_unique_values, get_chunks_to_process
 
 logger = logging.getLogger(__name__)
 
@@ -185,73 +187,229 @@ class CorrelationFile:
         corr_matrix: np.ndarray,
         station: str,
         channel: str,
+        primary_event_slice: Literal["all"] | Tuple[int, int] = "all",
+        secondary_event_slice: Literal["all"] | Tuple[int, int] = "all",
     ):
-        self.root.create_array(
-            f"{station}/{channel}/corr_values",
-            data=corr_matrix.astype(np.dtype("float32")),
-            chunks=(10, 10),
-            shards=(100, 100),
-            overwrite=True,
-        )
+        # retrieve metadata from file
+        events = self.root.attrs["events"]
+
+        event_indices = [int(index) for index in events.keys()]
+
+        max_event_index = event_indices[-1]
+        
+        # check if array exists (can probably be made more compact, but this helps readability)
+        if station in self.root:
+            if channel in self.root[station]:
+                if "corr_values" in self.root[station][channel]:
+                    array_exists = True
+                else:
+                    array_exists = False
+            else:
+                array_exists = False 
+        else:
+            array_exists = False 
+            
+        # create or access array
+        if not array_exists:
+            corr_array = self.root.create_array(
+                f"{station}/{channel}/corr_values",
+                # data=corr_matrix.astype(np.dtype("float32")),
+                shape=(max_event_index + 1, max_event_index + 1),
+                dtype="float32",
+                chunks=(self.chunksize, self.chunksize),
+                shards=(self.shardsize, self.shardsize),
+                fill_value=np.nan,
+            )
+        else:
+            corr_array = self.root[station][channel]["corr_values"]
+
+        # write data       
+        if primary_event_slice == "all" and secondary_event_slice == "all":
+            corr_array[0:max_event_index, 0:max_event_index] = corr_matrix.astype(
+                np.dtype("float32")
+            )
+        else:
+            corr_array[
+                primary_event_slice[0] : primary_event_slice[1] + 1,
+                secondary_event_slice[0] : secondary_event_slice[1] + 1,
+            ] = corr_matrix.astype(np.dtype("float32"))
 
     def write_lag_matrix(
         self,
         lag_matrix: np.ndarray,
         station: str,
         channel: str,
+        primary_event_slice: Literal["all"] | Tuple[int, int] = "all",
+        secondary_event_slice: Literal["all"] | Tuple[int, int] = "all",
     ):
-        self.root.create_array(
-            f"{station}/{channel}/lag_values",
-            data=lag_matrix.astype(np.dtype("float32")),
-            chunks=(10, 10),
-            shards=(100, 100),
-            overwrite=True,
-        )
+        # retrieve metadata from file
+        events = self.root.attrs["events"]
+
+        event_indices = [int(index) for index in events.keys()]
+
+        max_event_index = event_indices[-1]
+        
+        # check if array exists (can probably be made more compact, but this helps readability)
+        if station in self.root:
+            if channel in self.root[station]:
+                if "lag_values" in self.root[station][channel]:
+                    array_exists = True
+                else:
+                    array_exists = False
+            else:
+                array_exists = False 
+        else:
+            array_exists = False 
+
+        # create or access array
+        if not array_exists:
+            lag_array = self.root.create_array(
+                f"{station}/{channel}/lag_values",
+                # data=lag_matrix.astype(np.dtype("float32")),
+                shape=(max_event_index + 1, max_event_index + 1),
+                dtype="float32",
+                chunks=(self.chunksize, self.chunksize),
+                shards=(self.shardsize, self.shardsize),
+                fill_value=np.nan,
+            )
+        else:
+            lag_array = self.root[station][channel]["lag_values"]
+        
+        # write data            
+        if primary_event_slice == "all" and secondary_event_slice == "all":
+            lag_array[0:max_event_index, 0:max_event_index] = lag_matrix.astype(
+                np.dtype("float32")
+            )
+        else:
+            lag_array[
+                primary_event_slice[0] : primary_event_slice[1] + 1,
+                secondary_event_slice[0] : secondary_event_slice[1] + 1,
+            ] = lag_matrix.astype(np.dtype("float32"))
 
     ### SLICE
 
     def slice_traces_by_station_and_channel(
-        self, with_corr_file_index: bool = True
-    ) -> Dict[str, Dict[str, List[int]]]:
-
+        self,
+        primary_event_slice: Literal["all"] | Tuple[int, int] = "all",
+        secondary_event_slice: Literal["all"] | Tuple[int, int] = "all",
+        with_corr_file_index: bool = True,
+    ) -> (
+        Dict[str, Dict[str, List[int]]]
+        | Dict[str, Dict[str, Tuple[List[int], List[int]]]]
+    ):
         """Method that slices the available traces for all available events by station and channel, listing only events per slice that contain a trace for that station and channel combination.
 
         Returns:
             Dict[str, Dict[str, List[int]]]: A dictionary keyed by station names (str), where the values are dictionaries keyed by channel names (str), where the values are lists of event indices (str)
         """
-        slice_dict = {}
 
         events = self.root.attrs["events"]
 
+        event_indices = [int(index) for index in events.keys()]
+
         stations = list(self.get_stations(as_df=False).values())
-        
-        print(stations)
 
         channels = list(self.get_channels(as_df=False).values())
-        
-        print(channels)
 
         catalog = self.root.attrs["catalog"]
 
-        for event_index, event_id in events.items():
-            event_info = catalog[event_id]
+        if primary_event_slice == secondary_event_slice:
+            slice_dict = {}
 
-            for pick in event_info["picks"]:
-                if (
-                    pick["station_name"] in stations
-                    and pick["channel_name"] in channels
-                ):
-                    if pick["station_name"] not in slice_dict:
-                        slice_dict[pick["station_name"]] = dict()
+            event_indices_slice = (
+                event_indices
+                if primary_event_slice == "all"
+                else event_indices[primary_event_slice[0] : primary_event_slice[1] + 1]
+            )
 
-                    if pick["channel_name"] not in slice_dict[pick["station_name"]]:
-                        slice_dict[pick["station_name"]][pick["channel_name"]] = list()
+            for event_index in event_indices_slice:
+                event_id = events[str(event_index)]
 
-                    slice_dict[pick["station_name"]][pick["channel_name"]].append(
-                        int(event_index)
-                    )
+                event_info = catalog[event_id]
 
-        return slice_dict
+                for pick in event_info["picks"]:
+                    if (
+                        pick["station_name"] in stations
+                        and pick["channel_name"] in channels
+                    ):
+                        if pick["station_name"] not in slice_dict:
+                            slice_dict[pick["station_name"]] = dict()
+
+                        if pick["channel_name"] not in slice_dict[pick["station_name"]]:
+                            slice_dict[pick["station_name"]][
+                                pick["channel_name"]
+                            ] = list()
+
+                        slice_dict[pick["station_name"]][pick["channel_name"]].append(
+                            int(event_index)
+                        )
+
+            return slice_dict
+        else:
+            # assign which events to process, slice if necessary
+            primary_event_indices = (
+                event_indices
+                if primary_event_slice == "all"
+                else event_indices[primary_event_slice[0] : primary_event_slice[1] + 1]
+            )
+
+            secondary_event_indices = (
+                event_indices
+                if primary_event_slice == "all"
+                else event_indices[
+                    secondary_event_slice[0] : secondary_event_slice[1] + 1
+                ]
+            )
+
+            slice_dict = {}
+
+            for event_index in primary_event_indices:
+                event_id = events[str(event_index)]
+
+                event_info = catalog[event_id]
+
+                for pick in event_info["picks"]:
+                    if (
+                        pick["station_name"] in stations
+                        and pick["channel_name"] in channels
+                    ):
+                        if pick["station_name"] not in slice_dict:
+                            slice_dict[pick["station_name"]] = dict()
+
+                        if pick["channel_name"] not in slice_dict[pick["station_name"]]:
+                            slice_dict[pick["station_name"]][pick["channel_name"]] = (
+                                list(),
+                                list(),
+                            )
+
+                        slice_dict[pick["station_name"]][pick["channel_name"]][
+                            0
+                        ].append(int(event_index))
+
+            for event_index in secondary_event_indices:
+                event_id = events[str(event_index)]
+
+                event_info = catalog[event_id]
+
+                for pick in event_info["picks"]:
+                    if (
+                        pick["station_name"] in stations
+                        and pick["channel_name"] in channels
+                    ):
+                        if pick["station_name"] not in slice_dict:
+                            slice_dict[pick["station_name"]] = dict()
+
+                        if pick["channel_name"] not in slice_dict[pick["station_name"]]:
+                            slice_dict[pick["station_name"]][pick["channel_name"]] = (
+                                list(),
+                                list(),
+                            )
+
+                        slice_dict[pick["station_name"]][pick["channel_name"]][
+                            1
+                        ].append(int(event_index))
+
+            return slice_dict
 
     ### GET
 
@@ -376,27 +534,17 @@ class CorrelationFile:
         vertical_channels_postfix: Tuple[str] = ("Z", "3"),
     ) -> Dict[str, Dict[str, float]]:
         correlation_dict = {}
-        
-        time_a = time.time()
 
         # dynamically get all available station names, or not
         if stations == "all":
             station_names = list(self.root.group_keys())
         else:
             station_names = stations
-            
-        time_b = time.time()
-
-        print(
-            f"       Finished getting station names! (in {time_a - time_b:.3g} s)"
-        )
 
         for station_name in station_names:
             if station_name in self.root:
                 correlation_dict[station_name] = {}
 
-                time_a = time.time()
-                
                 # dynamically get all available channel names, or not
                 if (
                     channels == "all"
@@ -417,14 +565,6 @@ class CorrelationFile:
                         channel_names.append(channel_name)
                 else:
                     channel_names = channels
-                    
-                time_b = time.time()
-
-                print(
-                    f"       Finished getting channel names! (in {time_a - time_b:.3g} s)"
-                )
-                
-                time_a = time.time()
 
                 for channel_name in channel_names:
                     if channel_name in self.root[station_name]:
@@ -440,11 +580,7 @@ class CorrelationFile:
                             channel_name,
                             station_name,
                         )
-                time_b = time.time()
 
-                print(
-                    f"       Finished getting corr values! (in {time_a - time_b:.3g} s)"
-                )
             else:
                 logger.warning(
                     "stations %s is not available in this correlation file",
@@ -452,6 +588,112 @@ class CorrelationFile:
                 )
 
         return correlation_dict
+
+    def get_chunked_event_pair_corr_and_lag_values(
+        self,
+        primary_event_slice: Tuple[int, int],
+        secondary_event_slice: Tuple[int, int],
+        stations: Literal["all"] | List[str] = "all",
+        channels: Literal["all", "all_horiz", "all_vert"] | List[str] = "all",
+        horizontal_channels_postfix: Tuple[str] = ("E", "N", "1", "2"),
+        vertical_channels_postfix: Tuple[str] = ("Z", "3"),
+    ):
+        # make empty initial array with indexes
+        station_channel_index = []
+
+        # dynamically get all available station names, or not
+        if stations == "all":
+            station_names = list(self.root.group_keys())
+        else:
+            station_names = stations
+
+        for station_name in station_names:
+            if station_name in self.root:
+                # dynamically get all available channel names, or not
+                if (
+                    channels == "all"
+                    or channels == "all_horiz"
+                    or channels == "all_vert"
+                ):
+                    channel_names = []
+                    for channel_name, group in self.root[station_name].groups():
+                        if channels == "all_horiz" and not channel_name.endswith(
+                            tuple(horizontal_channels_postfix)
+                        ):
+                            continue  # skip iteration if not horizontal channel code
+                        elif channels == "all_vert" and not channel_name.endswith(
+                            tuple(vertical_channels_postfix)
+                        ):
+                            continue  # skip iteration if not vertical channel code
+
+                        channel_names.append(channel_name)
+                else:
+                    channel_names = channels
+
+                for channel_name in channel_names:
+                    if channel_name in self.root[station_name]:
+                        station_channel_index.append((station_name, channel_name))
+                    else:
+                        logger.warning(
+                            "channel %s is not available for station %s in this correlation file",
+                            channel_name,
+                            station_name,
+                        )
+            else:
+                logger.warning(
+                    "stations %s is not available in this correlation file",
+                    station_name,
+                )
+
+        if primary_event_slice == "all":
+            station, channel = station_channel_index[0]
+            primary_event_slice = (
+                0,
+                self.root[station][channel]["corr_values"].shape[0] - 1,
+            )
+
+        if secondary_event_slice == "all":
+            station, channel = station_channel_index[0]
+            secondary_event_slice = (
+                0,
+                self.root[station][channel]["corr_values"].shape[1] - 1,
+            )
+
+        # get corr values
+        corr_values_array = np.empty(
+            (
+                primary_event_slice[1] - primary_event_slice[0] + 1,
+                secondary_event_slice[1] - secondary_event_slice[0] + 1,
+                len(station_channel_index),
+            )
+        )
+
+        for index, station_channel in enumerate(station_channel_index):
+            station, channel = station_channel
+
+            corr_values_array[:, :, index] = self.root[station][channel]["corr_values"][
+                primary_event_slice[0] : primary_event_slice[1] + 1,
+                secondary_event_slice[0] : secondary_event_slice[1] + 1,
+            ]
+
+        # get lag values
+        lag_values_array = np.empty(
+            (
+                primary_event_slice[1] - primary_event_slice[0] + 1,
+                secondary_event_slice[1] - secondary_event_slice[0] + 1,
+                len(station_channel_index),
+            )
+        )
+
+        for index, station_channel in enumerate(station_channel_index):
+            station, channel = station_channel
+
+            lag_values_array[:, :, index] = self.root[station][channel]["lag_values"][
+                primary_event_slice[0] : primary_event_slice[1] + 1,
+                secondary_event_slice[0] : secondary_event_slice[1] + 1,
+            ]
+
+        return corr_values_array, lag_values_array, station_channel_index
 
     def get_single_event_pair_lag_values(
         self,
@@ -619,8 +861,6 @@ class CorrelationFile:
                             str(primary_trace_id)
                         ][str(secondary_trace_id)]
 
-            print(correllation_matrix)
-
             fig = figure(figsize=(7, 7), layout="constrained")
 
             ax = fig.add_subplot()
@@ -671,21 +911,81 @@ class CorrelationFile:
         vertical_channels_postfix: Tuple[str] = ("Z", "3"),
         tempdir: str | Path = "./.dtcc_chunks",
     ):
+
+        logger.info(
+            f"--- Exporting all differential times for the selected correlation file ---"
+        )
+
         # ensure arg types
         outfile = Path(outfile)
         tempdir = Path(tempdir)
 
-        self._write_dtcc_file(
-            outfile=outfile,
-            event_id_mapping=event_id_mapping,
-            lower_triangle=lower_triangle,
-            # primary_event_slice=(0,10),
-            stations=stations,
-            channels=channels,
-            min_corr_value=min_corr_value,
-            weight_value_type=weight_value_type,
-            horizontal_channels_postfix=horizontal_channels_postfix,
-            vertical_channels_postfix=vertical_channels_postfix,
+        logger.info(f"               out file: {outfile}")
+        logger.info(f"               temp dir: {tempdir}")
+
+        # retrieve metadata from file
+        events = self.root.attrs["events"]
+
+        event_indices = [int(index) for index in events.keys()]
+
+        # start assigning chunks for processing
+        ### NOTE: also necessary for serial processing as not working chunkwise is significantly slower due to continual de-compression of chunk files
+
+        max_event_index = event_indices[-1]
+
+        chunks_to_process = get_chunks_to_process(
+            max_event_index, self.chunksize, lower_triangle
+        )
+
+        logger.info(f"    # chunks to process: {len(chunks_to_process)}")
+
+        time_A = time.time()
+
+        for primary_event_slice, secondary_event_slice in chunks_to_process:
+            time_a = time.time()
+
+            self._write_dtcc_file(
+                outfile=tempdir
+                / (
+                    outfile.stem
+                    + f"_{primary_event_slice[0]}_{primary_event_slice[1]}_vs_{secondary_event_slice[0]}_{secondary_event_slice[1]}"
+                    + outfile.suffix
+                ),
+                event_id_mapping=event_id_mapping,
+                lower_triangle=lower_triangle,
+                primary_event_slice=primary_event_slice,
+                secondary_event_slice=secondary_event_slice,
+                stations=stations,
+                channels=channels,
+                min_corr_value=min_corr_value,
+                weight_value_type=weight_value_type,
+                horizontal_channels_postfix=horizontal_channels_postfix,
+                vertical_channels_postfix=vertical_channels_postfix,
+            )
+
+            time_b = time.time()
+
+            logger.info(
+                f"--- Exported event indices {primary_event_slice[0]} to {primary_event_slice[1]} against {secondary_event_slice[0]} to {secondary_event_slice[1]}, took {time_b - time_a:.3g} s"
+            )
+
+        time_B = time.time()
+
+        logger.info(f"Exported all event indices, total time {time_B - time_A:.3g} s")
+
+        logger.info(f"Collecting partial files")
+
+        time_a = time.time()
+
+        with outfile.open("wb") as wfd:
+            for partial_file in sorted(tempdir.glob("*")):
+                with partial_file.open("rb") as fd:
+                    copyfileobj(fd, wfd)
+
+        time_b = time.time()
+
+        logger.info(
+            f"Collected all partial files in {outfile}, took {time_b - time_a:.3g} s"
         )
 
     def _write_dtcc_file(
@@ -694,7 +994,7 @@ class CorrelationFile:
         event_id_mapping: Dict[str, str] | Literal["index"] | None = None,
         lower_triangle: bool = True,
         primary_event_slice: Literal["all"] | Tuple[int, int] = "all",
-        secondary_events_slice: Literal["all"] | Tuple[int, int] = "all",
+        secondary_event_slice: Literal["all"] | Tuple[int, int] = "all",
         stations: Literal["all"] | List[str] = "all",
         channels: Literal["all", "all_horiz", "all_vert"] | List[str] = "all",
         min_corr_value: float = 0,
@@ -707,6 +1007,8 @@ class CorrelationFile:
         # retrieve metadata from file
         events = self.root.attrs["events"]
 
+        catalog = self.root.attrs["catalog"]
+
         event_indices = [int(index) for index in events.keys()]
 
         # event_id_mapping
@@ -715,12 +1017,7 @@ class CorrelationFile:
         elif event_id_mapping is None:
             event_id_mapping = events
 
-        # metadata
-        events = self.root.attrs["events"]
-
-        catalog = self.root.attrs["catalog"]
-
-        # start writing file
+        # make out directory if necessary
         if not outfile.parent.exists():
             outfile.parent.mkdir(exist_ok=True, parents=True)
 
@@ -728,13 +1025,25 @@ class CorrelationFile:
         primary_event_indices = (
             event_indices
             if primary_event_slice == "all"
-            else event_indices[primary_event_slice[0]:primary_event_slice[1]]
+            else event_indices[primary_event_slice[0] : primary_event_slice[1] + 1]
         )
 
         secondary_event_indices = (
             event_indices
-            if secondary_events_slice == "all"
-            else event_indices[secondary_events_slice[0]:secondary_events_slice[1]]
+            if secondary_event_slice == "all"
+            else event_indices[secondary_event_slice[0] : secondary_event_slice[1] + 1]
+        )
+
+        # get values in chunk
+        corr_values_array, lag_values_array, station_channel_index = (
+            self.get_chunked_event_pair_corr_and_lag_values(
+                primary_event_slice,
+                secondary_event_slice,
+                stations=stations,
+                channels=channels,
+                horizontal_channels_postfix=horizontal_channels_postfix,
+                vertical_channels_postfix=vertical_channels_postfix,
+            )
         )
 
         # open file and run loop
@@ -749,15 +1058,46 @@ class CorrelationFile:
                     if lower_triangle
                     else secondary_event_indices
                 ):
+                    # retrieve events
+                    event_a = catalog[events[str(event_index_a)]]
+
+                    event_b = catalog[events[str(event_index_b)]]
+
+                    # unpack corr values
+                    corr_values = {}
+                    lag_values = {}
+
+                    for index, station_channel in enumerate(station_channel_index):
+                        station, channel = station_channel
+
+                        if station not in corr_values:
+                            corr_values[station] = {}
+
+                        if station not in lag_values:
+                            lag_values[station] = {}
+
+                        corr_values[station][channel] = corr_values_array[
+                            event_index_a - primary_event_slice[0],
+                            event_index_b - secondary_event_slice[0],
+                            index,
+                        ]
+
+                        lag_values[station][channel] = lag_values_array[
+                            event_index_a - primary_event_slice[0],
+                            event_index_b - secondary_event_slice[0],
+                            index,
+                        ]
+
+                    # write single pair to file
                     self._write_single_event_pair_to_dtcc(
                         dt_file,
-                        events,
-                        catalog,
+                        corr_values,
+                        lag_values,
                         event_index_a,
                         event_index_b,
                         event_id_mapping=event_id_mapping,
-                        stations=stations,
-                        channels=channels,
+                        event_a=event_a,
+                        event_b=event_b,
                         min_corr_value=min_corr_value,
                         weight_value_type=weight_value_type,
                         horizontal_channels_postfix=horizontal_channels_postfix,
@@ -772,13 +1112,13 @@ class CorrelationFile:
     def _write_single_event_pair_to_dtcc(
         self,
         dt_file,
-        events: Dict[str, str],
-        catalog: Catalog,
+        corr_values,
+        lag_values,
         event_index_a: str,
         event_index_b: str,
         event_id_mapping: Dict[str, str],
-        stations: Literal["all"] | List[str] = "all",
-        channels: Literal["all", "all_horiz", "all_vert"] | List[str] = "all",
+        event_a: Event,
+        event_b: Event,
         min_corr_value: float = 0,
         weight_value_type: Literal[
             "corr_squared", "signed_corr_squared"
@@ -787,43 +1127,6 @@ class CorrelationFile:
         vertical_channels_postfix: Tuple[str] = ("Z", "3"),
     ):
         single_pair_text_block = ""
-
-        # write header
-        single_pair_text_block += f"# {event_id_mapping[str(event_index_a)]} {event_id_mapping[str(event_index_b)]} 0.0"
-        
-        print("Writing:", single_pair_text_block)
-        
-        time_a = time.time()
-
-        event_a = catalog[events[str(event_index_a)]]
-
-        event_b = catalog[events[str(event_index_b)]]
-
-        corr_values = self.get_single_event_pair_correlation_value(
-            event_index_a,
-            event_index_b,
-            stations=stations,
-            channels=channels,
-            horizontal_channels_postfix=horizontal_channels_postfix,
-            vertical_channels_postfix=vertical_channels_postfix,
-        )
-
-        lag_values = self.get_single_event_pair_lag_values(
-            event_index_a,
-            event_index_b,
-            stations=stations,
-            channels=channels,
-            horizontal_channels_postfix=horizontal_channels_postfix,
-            vertical_channels_postfix=vertical_channels_postfix,
-        )
-        
-        time_b = time.time()
-
-        print(
-            f"    Loading input values complete! (in {time_a - time_b:.3g} s)"
-        )
-        
-        time_a = time.time()
 
         for station_name in corr_values.keys():
             # start with p phase differential times
@@ -834,19 +1137,33 @@ class CorrelationFile:
             ]
             if p_phase_channels:
                 if len(p_phase_channels) > 1:
-                    logger.warning(
-                        f"more than 1 vertical phase channel found: {p_phase_channels} for event pair {events[str(event_index_a)]} {events[str(event_index_b)]}, you may want to check"
-                    )
+                    if (
+                        sum(
+                            [
+                                not np.isnan(
+                                    corr_values[station_name][p_phase_channel_name]
+                                )
+                                for p_phase_channel_name in p_phase_channels
+                            ]
+                        )
+                        > 1
+                    ):
+                        logger.warning(
+                            f"more than 1 vertical phase channel found: {p_phase_channels} for event pair {event_index_a} {event_index_b}, you may want to check"
+                        )
 
                 for channel_name in p_phase_channels:
                     # corr and lag values
                     corr_value = corr_values[station_name][channel_name]
 
                     # stop writing if correlation value is not enough
-                    if corr_value < min_corr_value:
+                    if abs(corr_value) < min_corr_value:
                         continue
 
                     lag_value = lag_values[station_name][channel_name]
+
+                    if np.isnan(corr_value) or np.isnan(lag_value):
+                        continue
 
                     # catalog differential times
                     event_a_pick_time = UTCDateTime(
@@ -890,9 +1207,20 @@ class CorrelationFile:
 
             if s_phase_channels:
                 if len(s_phase_channels) > 1:
-                    logger.warning(
-                        f"more than 1 horizontal phase channel found: {s_phase_channels} for event pair {events[str(event_index_a)]} {events[str(event_index_b)]}, just so you know"
-                    )
+                    if (
+                        sum(
+                            [
+                                not np.isnan(
+                                    corr_values[station_name][s_phase_channel_name]
+                                )
+                                for s_phase_channel_name in s_phase_channels
+                            ]
+                        )
+                        > 1
+                    ):
+                        logger.warning(
+                            f"more than 1 horizontal phase channel found: {s_phase_channels} for event pair {event_index_a} {event_index_b}, just so you know"
+                        )
 
                 else:
                     for channel_name in s_phase_channels:
@@ -900,10 +1228,13 @@ class CorrelationFile:
                         corr_value = corr_values[station_name][channel_name]
 
                         # stop writing if correlation value is not enough
-                        if corr_value < min_corr_value:
+                        if abs(corr_value) < min_corr_value:
                             continue
 
                         lag_value = lag_values[station_name][channel_name]
+
+                        if np.isnan(corr_value) or np.isnan(lag_value):
+                            continue
 
                         # catalog differential times
                         event_a_pick_time = UTCDateTime(
@@ -939,26 +1270,16 @@ class CorrelationFile:
                         #
                         single_pair_text_block += f"{station_name:11s} {catalog_differential_time + lag_value:7.4f} {weight_value:5.2f} S\n"
 
-
-        time_b = time.time()
-
-        print(
-            f"    Creating dtcc text block complete! (in {time_a - time_b:.3g} s)"
-        )
+        # write header
+        if len(single_pair_text_block.splitlines()) > 0:
+            single_pair_text_block = (
+                f"# {event_id_mapping[str(event_index_a)]} {event_id_mapping[str(event_index_b)]} 0.0\n"
+                + single_pair_text_block
+            )
 
         # flush text block
-        
-        time_a = time.time()
-        
         if len(single_pair_text_block.split("\n")) > 1:
             dt_file.write(single_pair_text_block)
-            
-        time_b = time.time()
-
-        print(
-            f"    Writing dtcc text block complete! (in {time_a - time_b:.3g} s)"
-        )
-
 
     def _plot_single_corr_matrix(self, corr_matrix):
         pass

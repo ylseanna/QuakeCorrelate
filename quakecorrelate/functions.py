@@ -12,6 +12,8 @@ def cross_correlate_seismic_events(
     corr_file: str | Path = "./correlations.zarr",
     method: Literal["time", "frequency"] = "time",
     platform: Literal["gpu", "cpu"] = "gpu",
+    write_block_size: int = 1000,
+    read_block_size: int = 100,
     stations: List[str] | None = None,
     channels: List[str] | None = None,
     length: float | None = None,
@@ -32,8 +34,8 @@ def cross_correlate_seismic_events(
             Determines whether to cross correlate using time domain functions or frequency domain functions. Defaults to "time".
         platform ([&quot;gpu&quot;, &quot;cpu&quot;], optional):
             Whether to pass correlations to the gpu or cpu. Defaults to "gpu".
-        stationfile (str, Path, None, optional):
-            Station file can be passed to minimize pre-inventorizing - which can get slow if many streams are provided - or filter which channels to process.
+        stations (List[str]), None, optional):
+            Station names can be passed to minimize pre-inventorizing - which can get slow if many streams are provided - or filter which channels to process.
         channels (List[str]), None, optional):
             Channel names (e.g. ["EHN", "EHE", "EHZ]) can be passed to minimize pre-inventorizing - which can get slow if many streams are provided - or filter which channels to process.
         plot_corr_matrix (bool):
@@ -71,6 +73,8 @@ def cross_correlate_seismic_events(
         catalog=catalog,
         stations=stations,
         channels=channels,
+        shardsize=write_block_size,
+        chunksize=read_block_size,
     )
 
     correlator.cross_correlate(stream_dict, plot=plot_corr_matrix, length=length, padding=padding, shift_len=shift_len, out_filename="correlation.svg")
