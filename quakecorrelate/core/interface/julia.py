@@ -3,7 +3,7 @@ from os import environ
 
 from dotenv import load_dotenv
 from juliacall import Main as jl
-from juliacall import Pkg as jlPkg
+import juliapkg as jlPkg
 
 # from pathlib import Path
 
