@@ -4,12 +4,13 @@ from os import environ
 from dotenv import load_dotenv
 
 import juliapkg as jlPkg
+from juliacall import Main as jl
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
 logger = logging.getLogger("root")
 
-logger.info("Not all packages found, adding Julia packages...")
+logger.info("Setting up Julia for QuakeCorrelate...")
 
 load_dotenv()
 
@@ -26,6 +27,10 @@ elif environ.get("GPU_ARCH") == "Metal":
 
 logger.debug("Resolving jlPkg")
 jlPkg.resolve()
+
+if environ.get("GPU_ARCH") == "CUDA":
+    jl.seval("using CUDA")
+    jl.seval('CUDA.set_runtime_version!(v"12.4.0")')
 
 # if update:
 #     jlPkg.update()
