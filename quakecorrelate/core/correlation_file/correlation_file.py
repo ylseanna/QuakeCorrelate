@@ -3,6 +3,7 @@ import time
 from pathlib import Path
 from shutil import copyfileobj
 from typing import Dict, List, Literal, Tuple, TypedDict
+from multiprocessing import Pool, set_start_method
 
 import numpy as np
 import pandas as pd
@@ -14,6 +15,8 @@ from obspy.core.event import Event
 from ...util import ensure_unique_values, get_chunks_to_process
 
 logger = logging.getLogger(__name__)
+
+set_start_method("fork")
 
 
 class CorrMatrixDict(TypedDict):
@@ -34,9 +37,11 @@ class CorrelationFile:
         shardsize: int = 1000,
     ):
         # args
-        self.filename: Path = Path(filename)
+        self.filename = str(filename)
         self.chunksize = chunksize
         self.shardsize = shardsize
+
+        filename = Path(filename)
 
         if overwrite_file:
             root_args = dict(mode="w")
@@ -196,7 +201,7 @@ class CorrelationFile:
         event_indices = [int(index) for index in events.keys()]
 
         max_event_index = event_indices[-1]
-        
+
         # check if array exists (can probably be made more compact, but this helps readability)
         if station in self.root:
             if channel in self.root[station]:
@@ -205,10 +210,10 @@ class CorrelationFile:
                 else:
                     array_exists = False
             else:
-                array_exists = False 
+                array_exists = False
         else:
-            array_exists = False 
-            
+            array_exists = False
+
         # create or access array
         if not array_exists:
             corr_array = self.root.create_array(
@@ -223,7 +228,7 @@ class CorrelationFile:
         else:
             corr_array = self.root[station][channel]["corr_values"]
 
-        # write data       
+        # write data
         if primary_event_slice == "all" and secondary_event_slice == "all":
             corr_array[0:max_event_index, 0:max_event_index] = corr_matrix.astype(
                 np.dtype("float32")
@@ -248,7 +253,7 @@ class CorrelationFile:
         event_indices = [int(index) for index in events.keys()]
 
         max_event_index = event_indices[-1]
-        
+
         # check if array exists (can probably be made more compact, but this helps readability)
         if station in self.root:
             if channel in self.root[station]:
@@ -257,9 +262,9 @@ class CorrelationFile:
                 else:
                     array_exists = False
             else:
-                array_exists = False 
+                array_exists = False
         else:
-            array_exists = False 
+            array_exists = False
 
         # create or access array
         if not array_exists:
@@ -274,8 +279,8 @@ class CorrelationFile:
             )
         else:
             lag_array = self.root[station][channel]["lag_values"]
-        
-        # write data            
+
+        # write data
         if primary_event_slice == "all" and secondary_event_slice == "all":
             lag_array[0:max_event_index, 0:max_event_index] = lag_matrix.astype(
                 np.dtype("float32")
@@ -910,6 +915,8 @@ class CorrelationFile:
         horizontal_channels_postfix: Tuple[str] = ("E", "N", "1", "2"),
         vertical_channels_postfix: Tuple[str] = ("Z", "3"),
         tempdir: str | Path = "./.dtcc_chunks",
+        multiprocessing: bool = False,
+        num_processes: int = 1,
     ):
 
         logger.info(
@@ -941,32 +948,69 @@ class CorrelationFile:
 
         time_A = time.time()
 
-        for primary_event_slice, secondary_event_slice in chunks_to_process:
-            time_a = time.time()
+        if not multiprocessing or num_processes == 1:  # serial processing
+            for primary_event_slice, secondary_event_slice in chunks_to_process:
+                time_a = time.time()
 
-            self._write_dtcc_file(
-                outfile=tempdir
-                / (
-                    outfile.stem
-                    + f"_{primary_event_slice[0]}_{primary_event_slice[1]}_vs_{secondary_event_slice[0]}_{secondary_event_slice[1]}"
-                    + outfile.suffix
-                ),
-                event_id_mapping=event_id_mapping,
-                lower_triangle=lower_triangle,
-                primary_event_slice=primary_event_slice,
-                secondary_event_slice=secondary_event_slice,
-                stations=stations,
-                channels=channels,
-                min_corr_value=min_corr_value,
-                weight_value_type=weight_value_type,
-                horizontal_channels_postfix=horizontal_channels_postfix,
-                vertical_channels_postfix=vertical_channels_postfix,
-            )
+                self._write_dtcc_file(
+                    outfile=tempdir
+                    / (
+                        outfile.stem
+                        + f"_{primary_event_slice[0]}_{primary_event_slice[1]}_vs_{secondary_event_slice[0]}_{secondary_event_slice[1]}"
+                        + outfile.suffix
+                    ),
+                    event_id_mapping=event_id_mapping,
+                    lower_triangle=lower_triangle,
+                    primary_event_slice=primary_event_slice,
+                    secondary_event_slice=secondary_event_slice,
+                    stations=stations,
+                    channels=channels,
+                    min_corr_value=min_corr_value,
+                    weight_value_type=weight_value_type,
+                    horizontal_channels_postfix=horizontal_channels_postfix,
+                    vertical_channels_postfix=vertical_channels_postfix,
+                )
 
-            time_b = time.time()
+                time_b = time.time()
 
-            logger.info(
-                f"--- Exported event indices {primary_event_slice[0]} to {primary_event_slice[1]} against {secondary_event_slice[0]} to {secondary_event_slice[1]}, took {time_b - time_a:.3g} s"
+                logger.info(
+                    f"--- Exported event indices {primary_event_slice[0]} to {primary_event_slice[1]} against {secondary_event_slice[0]} to {secondary_event_slice[1]}, took {time_b - time_a:.3g} s"
+                )
+
+        else:  # if multiprocessing
+
+            # logger.info(
+            #     f"--- Exported event indices {primary_event_slice[0]} to {primary_event_slice[1]} against {secondary_event_slice[0]} to {secondary_event_slice[1]}, took {time_b - time_a:.3g} s"
+            # )
+
+            shared_params = [
+                self.filename,
+                self.chunksize,
+                self.shardsize,
+                tempdir,
+                outfile,
+                event_id_mapping,
+                lower_triangle,
+                stations,
+                channels,
+                min_corr_value,
+                weight_value_type,
+                horizontal_channels_postfix,
+                vertical_channels_postfix,
+            ]
+
+            pool = Pool(processes=num_processes)
+
+            pool.starmap(
+                write_dtcc_parallel,
+                [
+                    (
+                        primary_event_slice,
+                        secondary_event_slice,
+                        *shared_params,
+                    )
+                    for primary_event_slice, secondary_event_slice in chunks_to_process
+                ],
             )
 
         time_B = time.time()
@@ -1281,5 +1325,61 @@ class CorrelationFile:
         if len(single_pair_text_block.split("\n")) > 1:
             dt_file.write(single_pair_text_block)
 
-    def _plot_single_corr_matrix(self, corr_matrix):
+    def to_catalog_file(
+        self, format: Literal["ddsync", "hypodd", "growclust"] = "ddsync"
+    ):
+        """generate catalog files for various formats of double-difference relocation softwares, based on the .zarr metadata"""
         pass
+
+
+def write_dtcc_parallel(
+    primary_event_slice,
+    secondary_event_slice,
+    filename: str | Path = "./correlations.zarr",
+    chunksize: int = 100,
+    shardsize: int = 1000,
+    tempdir: str | Path = "./.dtcc_chunks",
+    outfile: Path = "./dt.cc",
+    event_id_mapping: Dict[str, str] | Literal["index"] | None = None,
+    lower_triangle: bool = True,
+    stations: Literal["all"] | List[str] = "all",
+    channels: Literal["all", "all_horiz", "all_vert"] | List[str] = "all",
+    min_corr_value: float = 0,
+    weight_value_type: Literal["corr_squared", "signed_corr_squared"] = "corr_squared",
+    horizontal_channels_postfix: Tuple[str] = ("E", "N", "1", "2"),
+    vertical_channels_postfix: Tuple[str] = ("Z", "3"),
+):
+    filename = Path(filename)
+    tempdir = Path(tempdir)
+    outfile = Path(outfile)
+
+    correlation_file = CorrelationFile(
+        filename=filename,
+        in_memory=False,
+        overwrite_file=False,
+        chunksize=chunksize,
+        shardsize=shardsize,
+    )
+
+    time_a = time.time()
+
+    correlation_file._write_dtcc_file(
+        outfile=tempdir
+        / (
+            outfile.stem
+            + f"_{primary_event_slice[0]}_{primary_event_slice[1]}_vs_{secondary_event_slice[0]}_{secondary_event_slice[1]}"
+            + outfile.suffix
+        ),
+        event_id_mapping=event_id_mapping,
+        lower_triangle=lower_triangle,
+        primary_event_slice=primary_event_slice,
+        secondary_event_slice=secondary_event_slice,
+        stations=stations,
+        channels=channels,
+        min_corr_value=min_corr_value,
+        weight_value_type=weight_value_type,
+        horizontal_channels_postfix=horizontal_channels_postfix,
+        vertical_channels_postfix=vertical_channels_postfix,
+    )
+
+    time_b = time.time()

@@ -123,7 +123,7 @@ class Correlator:
                 shift_len=shift_len,
                 interpolate=interpolate,
                 threads_per_block=threads_per_block,
-                plot=plot
+                plot=plot,
             )
 
             # if plot:
@@ -698,7 +698,7 @@ class Correlator:
                 )
 
                 logger.info("        Correlations written to disk...")
-                
+
                 if plot:
                     self.plot_corr_matrix(station=station, channel=channel)
                     logger.info("    plotted cross correlation matrix!")
@@ -707,28 +707,43 @@ class Correlator:
         self,
         station: str,
         channel: str,
+        indices: None | List[int] = None,
         out_dir: str | Path = "correlation_plots",
         out_filename: str | Path = "correlation.png",
-    ):
+        slice_stepwise: int | None = None,
+        normalized: bool = True,
+    ):        
         # ensure types
         out_dir = Path(out_dir)
         out_filename = Path(out_filename)
 
         # make sure directory exists
-        Path("./correlation_plots").mkdir(exist_ok=True, parents=True)
-        
+        out_dir.mkdir(exist_ok=True, parents=True)
+
         # get data
         corr_matrix = self.correlation_file.root[station][channel]["corr_values"]
 
+        # modify data
+        if indices:
+            corr_matrix = corr_matrix[indices, :][:, indices]
+
+        if slice_stepwise:
+            corr_matrix = corr_matrix[::slice_stepwise, ::slice_stepwise]
+
         # plot
-        fig = figure(figsize=(5, 5), layout="constrained")
+        fig = figure(figsize=(15, 15), layout="constrained")
 
         ax = fig.add_subplot()
 
         ax.xaxis.tick_top()
         ax.xaxis.set_label_position("top")
 
-        crmat = ax.imshow(corr_matrix, vmin=-1, vmax=1, cmap="RdBu")
+        if normalized:
+            crmat = ax.imshow(corr_matrix, vmin=-1, vmax=1, cmap="RdBu")
+        else:
+            max_abs = np.max(np.abs(corr_matrix))
+
+            crmat = ax.imshow(corr_matrix, vmin=-max_abs, vmax=max_abs, cmap="RdBu")
 
         cbar = fig.colorbar(crmat, ax=ax, shrink=0.6)
         cbar.ax.set_ylabel("correlation value")
@@ -742,5 +757,6 @@ class Correlator:
             out_dir
             / (out_filename.stem + f"_{station}_{channel}" + out_filename.suffix)
         )
+        del corr_matrix
 
-        del fig
+        close()
