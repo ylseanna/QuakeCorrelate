@@ -74,7 +74,7 @@ class CorrelationFile:
 
             event_dict = {}
 
-            # add origin information for
+            # add origin information
             origin = event.preferred_origin() or event.origins[0] or None
 
             if origin:
@@ -84,6 +84,11 @@ class CorrelationFile:
                     "lat": origin.latitude,
                     "depth": origin.depth,
                 }
+                
+                magnitude = event.preferred_magnitude().mag or event.magnitudes[0].mag or None
+                
+                if magnitude:
+                    event_dict["origin"]["mag"] = magnitude
 
             picks = []
 
@@ -1326,10 +1331,28 @@ class CorrelationFile:
             dt_file.write(single_pair_text_block)
 
     def to_catalog_file(
-        self, format: Literal["ddsync", "hypodd", "growclust"] = "ddsync"
+        self,
+        outfile: str | Path = "./catalog.txt",
+        format: Literal["ddsync"] = "ddsync",
     ):
+        # ensure type
+        outfile = Path(outfile)
+        
+        # get metadata
+        events = self.root.attrs["events"]
+
+        catalog = self.root.attrs["catalog"]
+        
         """generate catalog files for various formats of double-difference relocation softwares, based on the .zarr metadata"""
-        pass
+        with outfile.open("w+") as destination:
+            for event_id in events.values():
+                event = catalog[event_id]
+                
+                print([key for key in event.keys()])
+                
+                print(event["origin"])
+            
+                # destination.write(line)
 
 
 def write_dtcc_parallel(
