@@ -56,6 +56,27 @@ class CorrelationFile:
             **root_args,  # overwrite or else default
         )
 
+        # get attributes
+        if "catalog" in self.root.attrs:
+            self.catalog = self.root.attrs["catalog"]
+        else:
+            self.catalog = None
+
+        if "stations" in self.root.attrs:
+            self.stations = self.root.attrs["stations"]
+        else:
+            self.stations = None
+
+        if "channels" in self.root.attrs:
+            self.channels = self.root.attrs["channels"]
+        else:
+            self.channels = None
+
+        if "events" in self.root.attrs:
+            self.events = self.root.attrs["events"]
+        else:
+            self.events = None
+
     ### WRITE
 
     def write_catalog(self, catalog: Catalog):
@@ -108,6 +129,9 @@ class CorrelationFile:
 
         self.root.attrs["catalog"] = keyed_catalog_dict
 
+        # make attribute
+        self.catalog = self.root.attrs["catalog"]
+
     def write_stations(self, stations: list):
         # ensure sorting
         stations.sort()
@@ -135,6 +159,9 @@ class CorrelationFile:
 
         # insert into attributes
         self.root.attrs["stations"] = keyed_station_dict
+
+        # make attribute
+        self.stations = self.root.attrs["stations"]
 
     def write_channels(self, channels: list):
         # ensure sorting
@@ -164,6 +191,9 @@ class CorrelationFile:
         # insert into attributes
         self.root.attrs["channels"] = keyed_channel_dict
 
+        # link to attribute
+        self.channels = self.root.attrs["channels"]
+
     def write_events(self, events: list):
         # ensure sorting
         events.sort()
@@ -191,6 +221,9 @@ class CorrelationFile:
 
         # insert into attributes
         self.root.attrs["events"] = keyed_event_dict
+
+        # link to attribute
+        self.events = self.root.attrs["events"]
 
     def write_correlation_matrix(
         self,

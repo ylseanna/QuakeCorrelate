@@ -11,7 +11,6 @@ from obspy import Catalog, Stream
 
 from ..util.helper_functions import get_chunks_to_process, next_power_of_2, to_length
 from .correlation_file import CorrelationFile
-from .interface import JuliaInterface
 
 mpl_use("Agg")
 from matplotlib.pyplot import close, figure
@@ -280,6 +279,8 @@ class Correlator:
 
         # get julia
         if self.jl is None:
+            from .interface import JuliaInterface
+
             logger.info("    Accessing Julia")
             self.jl = JuliaInterface()
         else:
@@ -712,7 +713,7 @@ class Correlator:
         out_filename: str | Path = "correlation.png",
         slice_stepwise: int | None = None,
         normalized: bool = True,
-    ):        
+    ):
         # ensure types
         out_dir = Path(out_dir)
         out_filename = Path(out_filename)
@@ -721,7 +722,12 @@ class Correlator:
         out_dir.mkdir(exist_ok=True, parents=True)
 
         # get data
-        corr_matrix = self.correlation_file.root[station][channel]["corr_values"]
+        if not slice:
+            corr_matrix = self.correlation_file.root[station][channel]["corr_values"]
+        else:
+            corr_matrix = self.correlation_file.root[station][channel]["corr_values"][
+                ::slice
+            ]
 
         # modify data
         if indices:
