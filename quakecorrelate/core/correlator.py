@@ -579,6 +579,16 @@ class Correlator:
                     B = self.jl.pyconvert(
                         self.jl.Matrix, B.T
                     )  # ensure column indexing (for julia)
+                
+                
+                ### Cast to proper float precision
+                # NOTE: Metal does not support float64
+                
+                if  environ("GPU_ARCH") is "Metal"
+                    A = self.jl.Float32(A)
+                    
+                    if not lower_triangle:
+                        B = self.jl.Float32(B)
 
                 ### actual cross correlation
 
