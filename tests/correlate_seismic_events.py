@@ -18,7 +18,7 @@ template_catalog = Catalog()
 logger.info("Reading templates...")
 
 for mseed_path in sorted(
-    Path("/home/yad2/data/templates/bardarbunga/EGU26/2013_239_to_2017_257/templates").glob("**/*.ms")
+    Path("<miniseed_file_location>").glob("**/*.ms")
 ):
     
     event_id = mseed_path.stem
