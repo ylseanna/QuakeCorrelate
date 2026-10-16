@@ -1,3 +1,8 @@
+===============
+ QuakeCorrelate Documentation
+===============
+
+
 .. toctree::
    :maxdepth: 2
 
