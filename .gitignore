@@ -6,6 +6,7 @@ correlation_plots*
 ./**/dt.cc
 ./dt.cc
 dt.cc
+.env
 #
 #examples
 examples/test_data*
