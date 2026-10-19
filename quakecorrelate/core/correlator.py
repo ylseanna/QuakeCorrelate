@@ -584,7 +584,7 @@ class Correlator:
                 ### Cast to proper float precision
                 # NOTE: Metal does not support float64
 
-                if environ("GPU_ARCH") is "Metal":
+                if environ["GPU_ARCH"] is "Metal":
                     A = self.jl.Float32(A)
 
                     if not lower_triangle:
