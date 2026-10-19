@@ -7,6 +7,6 @@
 
    usage/quickstart
    usage/installation
-   reference/correlationfile
+   reference/apireference
 
 QuakeCorrelate hosts its documentation on Read the Docs.
