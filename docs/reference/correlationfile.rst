@@ -7,6 +7,6 @@
 quakecorrelate.core.correlation_file.CorrelationFile
 ========================
 
-.. autoclass:: quakecorrelate.core.correlation_file.CorrelationFile
+.. automodule:: quakecorrelate.core.correlation_file
     :members:
     :undoc-members:
