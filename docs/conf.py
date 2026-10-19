@@ -6,8 +6,13 @@ version = '1.0'
 release = '1.0.0'
 
 extensions = [
-    'sphinx.ext.autodoc',
+    'sphinx.ext.autodoc',  # Core library for html generation from docstrings
+    'sphinx.ext.autosummary',  # Create neat summary tables
 ]
+autosummary_generate = True  # Turn on sphinx.ext.autosummary
+
+# Add any paths that contain templates here, relative to this directory.
+templates_path = ['_templates']
 
 # HTML theme configuration
 html_theme = 'pydata_sphinx_theme'

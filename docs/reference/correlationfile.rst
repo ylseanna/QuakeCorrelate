@@ -7,6 +7,9 @@
 quakecorrelate.core.correlation_file.CorrelationFile
 ========================
 
-.. automodule:: quakecorrelate.core.correlation_file
-    :members:
-    :undoc-members:
+.. autosummary::
+   :toctree: _autosummary
+   :template: custom-module-template.rst
+   :recursive:
+
+   quakecorrelate
