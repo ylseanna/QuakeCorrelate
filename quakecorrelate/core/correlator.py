@@ -9,6 +9,7 @@ from typing import Dict, List, Tuple
 import numpy as np
 from matplotlib import use as mpl_use
 from obspy import Catalog, Stream
+from dotenv import load_dotenv
 
 from ..util.helper_functions import get_chunks_to_process, next_power_of_2, to_length
 from .correlation_file import CorrelationFile
@@ -20,6 +21,7 @@ from matplotlib.pyplot import close, figure
 
 logger = logging.getLogger(__name__)
 
+load_dotenv()
 
 class Correlator:
     "Correlator Class"
