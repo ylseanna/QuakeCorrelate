@@ -10,7 +10,7 @@ extensions = [
 ]
 
 # HTML theme configuration
-html_theme = 'python_docs_theme'
+html_theme = 'pydata_sphinx_theme'
 
 ### AUTODOC
 
