@@ -8,7 +8,7 @@ copyright = '2026, Ylse Anna de Vries, Gabriele Benedetti'
 author = 'Ylse Anna de Vries, Gabriele Benedetti'
 version = '1.0'
 release = '1.0.0'
-sys.path.insert(0, str(Path('..', 'quakecorrelate').resolve()))
+sys.path.insert(0, str(Path('..').resolve()))
 
 extensions = [
     'sphinx.ext.autodoc',  # Core library for html generation from docstrings
