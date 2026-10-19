@@ -20,17 +20,24 @@ jlPkg.add(
     url="git@github.com:gbene/Squiggles.jl.git",
 )
 
-if environ.get("GPU_ARCH") == "CUDA":
+if environ.get("QUAKECORRELATE_GPU_ARCH") == "CUDA":
     jlPkg.add("CUDA")
-elif environ.get("GPU_ARCH") == "Metal":
+elif environ.get("QUAKECORRELATE_GPU_ARCH") == "Metal":
     jlPkg.add("Metal")
 
 logger.debug("Resolving jlPkg")
 jlPkg.resolve()
 
-if environ.get("GPU_ARCH") == "CUDA":
+if environ.get("QUAKECORRELATE_GPU_ARCH") == "CUDA":
     jl.seval("using CUDA")
-    jl.seval('CUDA.set_runtime_version!(v"12.4.0")')
+
+    if environ.get("QUAKECORRELATE_CUDA_RUNTIME_VERSION"):
+        jl.seval(
+            f'CUDA.set_runtime_version!(v"{environ.get("QUAKECORRELATE_CUDA_RUNTIME_VERSION")}")'
+        )
+if environ.get("QUAKECORRELATE_GPU_ARCH") == "Metal":
+    jl.seval("using Metal")
+
 
 # if update:
 #     jlPkg.update()

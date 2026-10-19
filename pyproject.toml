@@ -21,14 +21,12 @@ classifiers = [
 
 dynamic = ['version']
 
-
 [project.urls]
 Homepage = "https://github.com/ylseanna/QuakeCorrelate"
 Issues = "https://github.com/ylseanna/QuakeCorrelate/issues"
 
 [tool.setuptools.dynamic]
 version = { attr = 'quakecorrelate.__version__' }
-
 
 [tool.setuptools.packages.find]
 include = ['quakecorrelate', 'quakecorrelate.*']
