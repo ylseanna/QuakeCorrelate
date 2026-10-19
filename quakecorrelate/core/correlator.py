@@ -98,7 +98,7 @@ class Correlator:
         self.correlation_file.write_events(list(stream_dict.keys()))
 
         # get event data
-        events = self.correlation_file.get_events(as_df=False)
+        events = self.correlation_file.events
 
         all_event_indices = [int(index) for index in events.keys()]
 
@@ -278,7 +278,7 @@ class Correlator:
         plot: bool = False,
     ):
         # get event data
-        events = self.correlation_file.get_events(as_df=False)
+        events = self.correlation_file.events
 
         # get julia
         if self.jl is None:

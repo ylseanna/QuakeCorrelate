@@ -13,6 +13,7 @@ from obspy import Catalog, UTCDateTime
 from obspy.core.event import Event
 
 from ...util import ensure_unique_values, get_chunks_to_process
+from .dtcc import _write_dtcc_parallel, _write_single_event_pair_to_dtcc
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +78,11 @@ class CorrelationFile:
         else:
             self.events = None
 
+    ### add indexing to CorrelationFile object - just refer straight to root
+    
+    def __getitem__(self, index):
+        return self.root[index]
+
     ### WRITE
 
     def write_catalog(self, catalog: Catalog):
@@ -105,9 +111,11 @@ class CorrelationFile:
                     "lat": origin.latitude,
                     "depth": origin.depth,
                 }
-                
-                magnitude = event.preferred_magnitude().mag or event.magnitudes[0].mag or None
-                
+
+                magnitude = (
+                    event.preferred_magnitude().mag or event.magnitudes[0].mag or None
+                )
+
                 if magnitude:
                     event_dict["origin"]["mag"] = magnitude
 
@@ -350,9 +358,9 @@ class CorrelationFile:
 
         event_indices = [int(index) for index in events.keys()]
 
-        stations = list(self.get_stations(as_df=False).values())
+        stations = list(self.channels.values())
 
-        channels = list(self.get_channels(as_df=False).values())
+        channels = list(self.channels.values())
 
         catalog = self.root.attrs["catalog"]
 
@@ -456,181 +464,181 @@ class CorrelationFile:
 
     ### GET
 
-    def get_stations(self, as_df=True, include_channels: bool = False):
-        stations = self.root.attrs["stations"]
+    # def get_stations(self, as_df=True, include_channels: bool = False):
+    #     stations = self.root.attrs["stations"]
 
-        if as_df:
-            stations_df = pd.DataFrame.from_records(
-                [(index, name) for index, name in stations.items()],
-                columns=["index", "name"],
-                index="index",
-            )
+    #     if as_df:
+    #         stations_df = pd.DataFrame.from_records(
+    #             [(index, name) for index, name in stations.items()],
+    #             columns=["index", "name"],
+    #             index="index",
+    #         )
 
-            return stations_df
-        else:
-            return stations
+    #         return stations_df
+    #     else:
+    #         return stations
 
-    def get_channels(self, as_df=True):
-        channels = self.root.attrs["channels"]
+    # def get_channels(self, as_df=True):
+    #     channels = self.root.attrs["channels"]
 
-        if as_df:
-            channels_df = pd.DataFrame.from_records(
-                [(index, name) for index, name in channels.items()],
-                columns=["index", "name"],
-                index="index",
-            )
+    #     if as_df:
+    #         channels_df = pd.DataFrame.from_records(
+    #             [(index, name) for index, name in channels.items()],
+    #             columns=["index", "name"],
+    #             index="index",
+    #         )
 
-            return channels_df
-        else:
-            return channels
+    #         return channels_df
+    #     else:
+    #         return channels
 
-    def get_events(self, as_df: bool = True):
-        events = self.root.attrs["events"]
+    # def get_events(self, as_df: bool = True):
+    #     events = self.root.attrs["events"]
 
-        if as_df:
-            events_df = pd.DataFrame.from_records(
-                [(index, name) for index, name in events.items()],
-                columns=["index", "name"],
-                index="index",
-            )
+    #     if as_df:
+    #         events_df = pd.DataFrame.from_records(
+    #             [(index, name) for index, name in events.items()],
+    #             columns=["index", "name"],
+    #             index="index",
+    #         )
 
-            return events_df
-        else:
-            return events
+    #         return events_df
+    #     else:
+    #         return events
 
-    def get_correlation_matrix(
-        self,
-        stations: Literal["all"] | List[str] = "all",
-        channels: Literal["all", "all_horiz", "all_vert"] | List[str] = "all",
-        horizontal_channels_postfix: Tuple[str] = ("E", "N", "1", "2"),
-        vertical_channels_postfix: Tuple[str] = ("Z", "3"),
-    ) -> np.ndarray | List[CorrMatrixDict]:
-        corr_matrix_list = []
+    # def get_correlation_matrix(
+    #     self,
+    #     stations: Literal["all"] | List[str] = "all",
+    #     channels: Literal["all", "all_horiz", "all_vert"] | List[str] = "all",
+    #     horizontal_channels_postfix: Tuple[str] = ("E", "N", "1", "2"),
+    #     vertical_channels_postfix: Tuple[str] = ("Z", "3"),
+    # ) -> np.ndarray | List[CorrMatrixDict]:
+    #     corr_matrix_list = []
 
-        if stations == "all":
-            stations = list(self.root.group_keys())
+    #     if stations == "all":
+    #         stations = list(self.root.group_keys())
 
-        for station_name in stations:
-            if station_name in self.root:
-                if (
-                    channels == "all"
-                    or channels == "all_horiz"
-                    or channels == "all_vert"
-                ):
-                    for channel_name, group in self.root[station_name].groups():
-                        if channels == "all_horiz" and not channel_name.endswith(
-                            tuple(horizontal_channels_postfix)
-                        ):
-                            continue  # skip iteration if not horizontal channel code
-                        elif channels == "all_vert" and not channel_name.endswith(
-                            tuple(vertical_channels_postfix)
-                        ):
-                            continue  # skip iteration if not vertical channel code
+    #     for station_name in stations:
+    #         if station_name in self.root:
+    #             if (
+    #                 channels == "all"
+    #                 or channels == "all_horiz"
+    #                 or channels == "all_vert"
+    #             ):
+    #                 for channel_name, group in self.root[station_name].groups():
+    #                     if channels == "all_horiz" and not channel_name.endswith(
+    #                         tuple(horizontal_channels_postfix)
+    #                     ):
+    #                         continue  # skip iteration if not horizontal channel code
+    #                     elif channels == "all_vert" and not channel_name.endswith(
+    #                         tuple(vertical_channels_postfix)
+    #                     ):
+    #                         continue  # skip iteration if not vertical channel code
 
-                        corr_matrix_list.append(
-                            {
-                                "station": station_name,
-                                "channel": channel_name,
-                                "corr_matrix": group["corr_values"][:],
-                            }
-                        )
-                else:
-                    for channel_name in channels:
-                        if channel_name in self.root[station_name]:
-                            corr_matrix_list.append(
-                                {
-                                    "station": station_name,
-                                    "channel": channel_name,
-                                    "corr_matrix": self.root[station_name][
-                                        channel_name
-                                    ]["corr_values"][:],
-                                }
-                            )
-                        else:
-                            logger.warning(
-                                "channel %s is not available for station %s in this correlation file",
-                                channel_name,
-                                station_name,
-                            )
-            else:
-                logger.warning(
-                    "stations %s is not available in this correlation file",
-                    station_name,
-                )
+    #                     corr_matrix_list.append(
+    #                         {
+    #                             "station": station_name,
+    #                             "channel": channel_name,
+    #                             "corr_matrix": group["corr_values"][:],
+    #                         }
+    #                     )
+    #             else:
+    #                 for channel_name in channels:
+    #                     if channel_name in self.root[station_name]:
+    #                         corr_matrix_list.append(
+    #                             {
+    #                                 "station": station_name,
+    #                                 "channel": channel_name,
+    #                                 "corr_matrix": self.root[station_name][
+    #                                     channel_name
+    #                                 ]["corr_values"][:],
+    #                             }
+    #                         )
+    #                     else:
+    #                         logger.warning(
+    #                             "channel %s is not available for station %s in this correlation file",
+    #                             channel_name,
+    #                             station_name,
+    #                         )
+    #         else:
+    #             logger.warning(
+    #                 "stations %s is not available in this correlation file",
+    #                 station_name,
+    #             )
 
-        if len(corr_matrix_list) > 1:
-            return corr_matrix_list
-        elif len(corr_matrix_list) == 1:
-            return corr_matrix_list[0]["corr_matrix"]
-        else:
-            logger.warning(
-                "No correlation matrices with these search parameters are available in this correlation file"
-            )
+    #     if len(corr_matrix_list) > 1:
+    #         return corr_matrix_list
+    #     elif len(corr_matrix_list) == 1:
+    #         return corr_matrix_list[0]["corr_matrix"]
+    #     else:
+    #         logger.warning(
+    #             "No correlation matrices with these search parameters are available in this correlation file"
+    #         )
 
-    def get_single_event_pair_correlation_value(
-        self,
-        event_index_a: int,
-        event_index_b: int,
-        stations: Literal["all"] | List[str] = "all",
-        channels: Literal["all", "all_horiz", "all_vert"] | List[str] = "all",
-        horizontal_channels_postfix: Tuple[str] = ("E", "N", "1", "2"),
-        vertical_channels_postfix: Tuple[str] = ("Z", "3"),
-    ) -> Dict[str, Dict[str, float]]:
-        correlation_dict = {}
+    # def get_single_event_pair_correlation_value(
+    #     self,
+    #     event_index_a: int,
+    #     event_index_b: int,
+    #     stations: Literal["all"] | List[str] = "all",
+    #     channels: Literal["all", "all_horiz", "all_vert"] | List[str] = "all",
+    #     horizontal_channels_postfix: Tuple[str] = ("E", "N", "1", "2"),
+    #     vertical_channels_postfix: Tuple[str] = ("Z", "3"),
+    # ) -> Dict[str, Dict[str, float]]:
+    #     correlation_dict = {}
 
-        # dynamically get all available station names, or not
-        if stations == "all":
-            station_names = list(self.root.group_keys())
-        else:
-            station_names = stations
+    #     # dynamically get all available station names, or not
+    #     if stations == "all":
+    #         station_names = list(self.root.group_keys())
+    #     else:
+    #         station_names = stations
 
-        for station_name in station_names:
-            if station_name in self.root:
-                correlation_dict[station_name] = {}
+    #     for station_name in station_names:
+    #         if station_name in self.root:
+    #             correlation_dict[station_name] = {}
 
-                # dynamically get all available channel names, or not
-                if (
-                    channels == "all"
-                    or channels == "all_horiz"
-                    or channels == "all_vert"
-                ):
-                    channel_names = []
-                    for channel_name, group in self.root[station_name].groups():
-                        if channels == "all_horiz" and not channel_name.endswith(
-                            tuple(horizontal_channels_postfix)
-                        ):
-                            continue  # skip iteration if not horizontal channel code
-                        elif channels == "all_vert" and not channel_name.endswith(
-                            tuple(vertical_channels_postfix)
-                        ):
-                            continue  # skip iteration if not vertical channel code
+    #             # dynamically get all available channel names, or not
+    #             if (
+    #                 channels == "all"
+    #                 or channels == "all_horiz"
+    #                 or channels == "all_vert"
+    #             ):
+    #                 channel_names = []
+    #                 for channel_name, group in self.root[station_name].groups():
+    #                     if channels == "all_horiz" and not channel_name.endswith(
+    #                         tuple(horizontal_channels_postfix)
+    #                     ):
+    #                         continue  # skip iteration if not horizontal channel code
+    #                     elif channels == "all_vert" and not channel_name.endswith(
+    #                         tuple(vertical_channels_postfix)
+    #                     ):
+    #                         continue  # skip iteration if not vertical channel code
 
-                        channel_names.append(channel_name)
-                else:
-                    channel_names = channels
+    #                     channel_names.append(channel_name)
+    #             else:
+    #                 channel_names = channels
 
-                for channel_name in channel_names:
-                    if channel_name in self.root[station_name]:
-                        corr_value = self.root[station_name][channel_name][
-                            "corr_values"
-                        ][event_index_a, event_index_b]
+    #             for channel_name in channel_names:
+    #                 if channel_name in self.root[station_name]:
+    #                     corr_value = self.root[station_name][channel_name][
+    #                         "corr_values"
+    #                     ][event_index_a, event_index_b]
 
-                        if not np.isnan(corr_value):
-                            correlation_dict[station_name][channel_name] = corr_value
-                    else:
-                        logger.warning(
-                            "channel %s is not available for station %s in this correlation file",
-                            channel_name,
-                            station_name,
-                        )
+    #                     if not np.isnan(corr_value):
+    #                         correlation_dict[station_name][channel_name] = corr_value
+    #                 else:
+    #                     logger.warning(
+    #                         "channel %s is not available for station %s in this correlation file",
+    #                         channel_name,
+    #                         station_name,
+    #                     )
 
-            else:
-                logger.warning(
-                    "stations %s is not available in this correlation file",
-                    station_name,
-                )
+    #         else:
+    #             logger.warning(
+    #                 "stations %s is not available in this correlation file",
+    #                 station_name,
+    #             )
 
-        return correlation_dict
+    #     return correlation_dict
 
     def get_chunked_event_pair_corr_and_lag_values(
         self,
@@ -1040,7 +1048,7 @@ class CorrelationFile:
             pool = Pool(processes=num_processes)
 
             pool.starmap(
-                write_dtcc_parallel,
+                _write_dtcc_parallel,
                 [
                     (
                         primary_event_slice,
@@ -1087,9 +1095,9 @@ class CorrelationFile:
         vertical_channels_postfix: Tuple[str] = ("Z", "3"),
     ):
         # retrieve metadata from file
-        events = self.root.attrs["events"]
+        events = self.events
 
-        catalog = self.root.attrs["catalog"]
+        catalog = self.catalog
 
         event_indices = [int(index) for index in events.keys()]
 
@@ -1171,7 +1179,7 @@ class CorrelationFile:
                         ]
 
                     # write single pair to file
-                    self._write_single_event_pair_to_dtcc(
+                    _write_single_event_pair_to_dtcc(
                         dt_file,
                         corr_values,
                         lag_values,
@@ -1191,177 +1199,7 @@ class CorrelationFile:
         elif isinstance(event_id_mapping, dict):
             return event_id_mapping
 
-    def _write_single_event_pair_to_dtcc(
-        self,
-        dt_file,
-        corr_values,
-        lag_values,
-        event_index_a: str,
-        event_index_b: str,
-        event_id_mapping: Dict[str, str],
-        event_a: Event,
-        event_b: Event,
-        min_corr_value: float = 0,
-        weight_value_type: Literal[
-            "corr_squared", "signed_corr_squared"
-        ] = "corr_squared",
-        horizontal_channels_postfix: Tuple[str] = ("E", "N", "1", "2"),
-        vertical_channels_postfix: Tuple[str] = ("Z", "3"),
-    ):
-        single_pair_text_block = ""
-
-        for station_name in corr_values.keys():
-            # start with p phase differential times
-            p_phase_channels = [
-                channel_name
-                for channel_name in corr_values[station_name].keys()
-                if channel_name.endswith(vertical_channels_postfix)
-            ]
-            if p_phase_channels:
-                if len(p_phase_channels) > 1:
-                    if (
-                        sum(
-                            [
-                                not np.isnan(
-                                    corr_values[station_name][p_phase_channel_name]
-                                )
-                                for p_phase_channel_name in p_phase_channels
-                            ]
-                        )
-                        > 1
-                    ):
-                        logger.warning(
-                            f"more than 1 vertical phase channel found: {p_phase_channels} for event pair {event_index_a} {event_index_b}, you may want to check"
-                        )
-
-                for channel_name in p_phase_channels:
-                    # corr and lag values
-                    corr_value = corr_values[station_name][channel_name]
-
-                    # stop writing if correlation value is not enough
-                    if abs(corr_value) < min_corr_value:
-                        continue
-
-                    lag_value = lag_values[station_name][channel_name]
-
-                    if np.isnan(corr_value) or np.isnan(lag_value):
-                        continue
-
-                    # catalog differential times
-                    event_a_pick_time = UTCDateTime(
-                        [
-                            pick
-                            for pick in event_a["picks"]
-                            if pick["station_name"] == station_name
-                            and pick["channel_name"] == channel_name
-                            and pick["phase_hint"] == "P"
-                        ][0]["time"]
-                    )
-
-                    event_b_pick_time = UTCDateTime(
-                        [
-                            pick
-                            for pick in event_b["picks"]
-                            if pick["station_name"] == station_name
-                            and pick["channel_name"] == channel_name
-                            and pick["phase_hint"] == "P"
-                        ][0]["time"]
-                    )
-
-                    catalog_differential_time = (
-                        event_b_pick_time - UTCDateTime(event_b["origin"]["time"])
-                    ) - (event_a_pick_time - UTCDateTime(event_a["origin"]["time"]))
-
-                    # weight value
-                    if weight_value_type == "corr_squared":
-                        weight_value = corr_value * corr_value
-                    elif weight_value_type == "signed_corr_squared":
-                        weight_value = abs(corr_value) * corr_value
-
-                    #
-                    single_pair_text_block += f"{station_name:11s} {catalog_differential_time + lag_value:7.4f} {weight_value:5.2f} P\n"
-
-            s_phase_channels = [
-                channel_name
-                for channel_name in corr_values[station_name].keys()
-                if channel_name.endswith(horizontal_channels_postfix)
-            ]
-
-            if s_phase_channels:
-                if len(s_phase_channels) > 1:
-                    if (
-                        sum(
-                            [
-                                not np.isnan(
-                                    corr_values[station_name][s_phase_channel_name]
-                                )
-                                for s_phase_channel_name in s_phase_channels
-                            ]
-                        )
-                        > 1
-                    ):
-                        logger.warning(
-                            f"more than 1 horizontal phase channel found: {s_phase_channels} for event pair {event_index_a} {event_index_b}, just so you know"
-                        )
-
-                else:
-                    for channel_name in s_phase_channels:
-                        # corr and lag values
-                        corr_value = corr_values[station_name][channel_name]
-
-                        # stop writing if correlation value is not enough
-                        if abs(corr_value) < min_corr_value:
-                            continue
-
-                        lag_value = lag_values[station_name][channel_name]
-
-                        if np.isnan(corr_value) or np.isnan(lag_value):
-                            continue
-
-                        # catalog differential times
-                        event_a_pick_time = UTCDateTime(
-                            [
-                                pick
-                                for pick in event_a["picks"]
-                                if pick["station_name"] == station_name
-                                and pick["channel_name"] == channel_name
-                                and pick["phase_hint"] == "S"
-                            ][0]["time"]
-                        )
-
-                        event_b_pick_time = UTCDateTime(
-                            [
-                                pick
-                                for pick in event_b["picks"]
-                                if pick["station_name"] == station_name
-                                and pick["channel_name"] == channel_name
-                                and pick["phase_hint"] == "S"
-                            ][0]["time"]
-                        )
-
-                        catalog_differential_time = (
-                            event_b_pick_time - UTCDateTime(event_b["origin"]["time"])
-                        ) - (event_a_pick_time - UTCDateTime(event_a["origin"]["time"]))
-
-                        # weight value
-                        if weight_value_type == "corr_squared":
-                            weight_value = corr_value * corr_value
-                        elif weight_value_type == "signed_corr_squared":
-                            weight_value = abs(corr_value) * corr_value
-
-                        #
-                        single_pair_text_block += f"{station_name:11s} {catalog_differential_time + lag_value:7.4f} {weight_value:5.2f} S\n"
-
-        # write header
-        if len(single_pair_text_block.splitlines()) > 0:
-            single_pair_text_block = (
-                f"# {event_id_mapping[str(event_index_a)]} {event_id_mapping[str(event_index_b)]} 0.0\n"
-                + single_pair_text_block
-            )
-
-        # flush text block
-        if len(single_pair_text_block.split("\n")) > 1:
-            dt_file.write(single_pair_text_block)
+    
 
     def to_catalog_file(
         self,
@@ -1370,72 +1208,19 @@ class CorrelationFile:
     ):
         # ensure type
         outfile = Path(outfile)
-        
+
         # get metadata
         events = self.root.attrs["events"]
 
         catalog = self.root.attrs["catalog"]
-        
+
         """generate catalog files for various formats of double-difference relocation softwares, based on the .zarr metadata"""
         with outfile.open("w+") as destination:
             for event_id in events.values():
                 event = catalog[event_id]
-                
+
                 print([key for key in event.keys()])
-                
+
                 print(event["origin"])
-            
+
                 # destination.write(line)
-
-
-def write_dtcc_parallel(
-    primary_event_slice,
-    secondary_event_slice,
-    filename: str | Path = "./correlations.zarr",
-    chunksize: int = 100,
-    shardsize: int = 1000,
-    tempdir: str | Path = "./.dtcc_chunks",
-    outfile: Path = "./dt.cc",
-    event_id_mapping: Dict[str, str] | Literal["index"] | None = None,
-    lower_triangle: bool = True,
-    stations: Literal["all"] | List[str] = "all",
-    channels: Literal["all", "all_horiz", "all_vert"] | List[str] = "all",
-    min_corr_value: float = 0,
-    weight_value_type: Literal["corr_squared", "signed_corr_squared"] = "corr_squared",
-    horizontal_channels_postfix: Tuple[str] = ("E", "N", "1", "2"),
-    vertical_channels_postfix: Tuple[str] = ("Z", "3"),
-):
-    filename = Path(filename)
-    tempdir = Path(tempdir)
-    outfile = Path(outfile)
-
-    correlation_file = CorrelationFile(
-        filename=filename,
-        in_memory=False,
-        overwrite_file=False,
-        chunksize=chunksize,
-        shardsize=shardsize,
-    )
-
-    time_a = time.time()
-
-    correlation_file._write_dtcc_file(
-        outfile=tempdir
-        / (
-            outfile.stem
-            + f"_{primary_event_slice[0]}_{primary_event_slice[1]}_vs_{secondary_event_slice[0]}_{secondary_event_slice[1]}"
-            + outfile.suffix
-        ),
-        event_id_mapping=event_id_mapping,
-        lower_triangle=lower_triangle,
-        primary_event_slice=primary_event_slice,
-        secondary_event_slice=secondary_event_slice,
-        stations=stations,
-        channels=channels,
-        min_corr_value=min_corr_value,
-        weight_value_type=weight_value_type,
-        horizontal_channels_postfix=horizontal_channels_postfix,
-        vertical_channels_postfix=vertical_channels_postfix,
-    )
-
-    time_b = time.time()
