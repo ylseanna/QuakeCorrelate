@@ -79,7 +79,7 @@ class CorrelationFile:
             self.events = None
 
     ### add indexing to CorrelationFile object - just refer straight to root
-    
+
     def __getitem__(self, index):
         return self.root[index]
 
@@ -354,18 +354,15 @@ class CorrelationFile:
             Dict[str, Dict[str, List[int]]]: A dictionary keyed by station names (str), where the values are dictionaries keyed by channel names (str), where the values are lists of event indices (str)
         """
 
-        events = self.root.attrs["events"]
+        event_indices = [int(index) for index in self.events.keys()]
 
-        event_indices = [int(index) for index in events.keys()]
-
-        stations = list(self.channels.values())
+        stations = list(self.stations.values())
 
         channels = list(self.channels.values())
 
-        catalog = self.root.attrs["catalog"]
+        slice_dict = {}
 
         if primary_event_slice == secondary_event_slice:
-            slice_dict = {}
 
             event_indices_slice = (
                 event_indices
@@ -374,9 +371,9 @@ class CorrelationFile:
             )
 
             for event_index in event_indices_slice:
-                event_id = events[str(event_index)]
+                event_id = self.events[str(event_index)]
 
-                event_info = catalog[event_id]
+                event_info = self.catalog[event_id]
 
                 for pick in event_info["picks"]:
                     if (
@@ -394,8 +391,6 @@ class CorrelationFile:
                         slice_dict[pick["station_name"]][pick["channel_name"]].append(
                             int(event_index)
                         )
-
-            return slice_dict
         else:
             # assign which events to process, slice if necessary
             primary_event_indices = (
@@ -412,12 +407,10 @@ class CorrelationFile:
                 ]
             )
 
-            slice_dict = {}
-
             for event_index in primary_event_indices:
-                event_id = events[str(event_index)]
+                event_id = self.events[str(event_index)]
 
-                event_info = catalog[event_id]
+                event_info = self.catalog[event_id]
 
                 for pick in event_info["picks"]:
                     if (
@@ -438,9 +431,9 @@ class CorrelationFile:
                         ].append(int(event_index))
 
             for event_index in secondary_event_indices:
-                event_id = events[str(event_index)]
+                event_id = self.events[str(event_index)]
 
-                event_info = catalog[event_id]
+                event_info = self.catalog[event_id]
 
                 for pick in event_info["picks"]:
                     if (
@@ -460,7 +453,7 @@ class CorrelationFile:
                             1
                         ].append(int(event_index))
 
-            return slice_dict
+        return slice_dict
 
     ### GET
 
@@ -1198,8 +1191,6 @@ class CorrelationFile:
             return events
         elif isinstance(event_id_mapping, dict):
             return event_id_mapping
-
-    
 
     def to_catalog_file(
         self,

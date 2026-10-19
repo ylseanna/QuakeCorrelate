@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 
+
 class Correlator:
     "Correlator Class"
 
