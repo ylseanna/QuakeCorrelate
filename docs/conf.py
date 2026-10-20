@@ -70,7 +70,7 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # a list of builtin themes.
 
 master_doc = "index"
-html_theme = 'sphinx_book_theme'
+html_theme = 'pydata_sphinx_theme'
 
 
 # # Add any paths that contain custom static files (such as style sheets) here,
