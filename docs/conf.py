@@ -26,9 +26,9 @@ copyright = "2026-{}, Ylse Anna de Vries, Gabriele Benedetti".format(date.today(
 author = 'Ylse Anna de Vries, Gabriele Benedetti'
 
 # The full version, including alpha/beta/rc tags
-import quakecorrelate
+# import quakecorrelate
 
-version = quakecorrelate.__version__
+version = "0.1.0"
 release = version
 
 # -- General configuration ---------------------------------------------------
