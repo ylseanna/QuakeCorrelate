@@ -10,10 +10,3 @@
    apireference
 
 QuakeCorrelate hosts its documentation on Read the Docs.
-
-.. autosummary::
-   :toctree: _autosummary
-   :template: custom-module-template.rst
-   :recursive:
-
-   quakecorrelate
