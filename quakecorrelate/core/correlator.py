@@ -587,7 +587,7 @@ class Correlator:
                 ### Cast to proper float precision
                 # NOTE: Metal does not support float64
 
-                if environ["GPU_ARCH"] is "Metal":
+                if environ["QUAKECORRELATE_GPU_ARCH"] is "Metal":
                     A = self.jl.Float32(A)
 
                     if not lower_triangle:
@@ -735,11 +735,11 @@ class Correlator:
         out_dir.mkdir(exist_ok=True, parents=True)
 
         # get data
-        if not slice:
+        if not slice_stepwise:
             corr_matrix = self.correlation_file.root[station][channel]["corr_values"]
         else:
             corr_matrix = self.correlation_file.root[station][channel]["corr_values"][
-                ::slice
+                ::slice_stepwise
             ]
 
         # modify data

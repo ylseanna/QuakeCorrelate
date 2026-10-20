@@ -6,8 +6,8 @@ from pathlib import Path
 project = 'QuakeCorrelate'
 copyright = '2026, Ylse Anna de Vries, Gabriele Benedetti'
 author = 'Ylse Anna de Vries, Gabriele Benedetti'
-version = '1.0'
-release = '1.0.0'
+version = '0.1'
+release = '0.1.0'
 sys.path.insert(0, str(Path('..').resolve()))
 
 extensions = [

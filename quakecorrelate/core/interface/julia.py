@@ -21,9 +21,9 @@ def JuliaInterface(update: bool = False):
     logger.debug("Setting Julia to use Squiggles")
     jl.seval("using Squiggles")
 
-    if environ.get("GPU_ARCH") == "CUDA":
+    if environ.get("QUAKECORRELATE_GPU_ARCH") == "CUDA":
         jl.seval("using CUDA")
-    elif environ.get("GPU_ARCH") == "Metal":
+    elif environ.get("QUAKECORRELATE_GPU_ARCH") == "Metal":
         jl.seval("using Metal")
 
     jl.Squiggles.set_GPUbackend()
