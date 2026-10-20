@@ -49,7 +49,7 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.autosectionlabel",
     "sphinx.ext.napoleon",
-    "nbsphinx"
+    # "nbsphinx"
 ]
 napoleon_google_docstring = False
 napoleon_use_param = False
