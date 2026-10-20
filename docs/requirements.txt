@@ -1,6 +1,4 @@
 pydata-sphinx-theme
-nbsphinx
 Sphinx
-IPython
-ipykernel
 sphinx-autobuild
+.
