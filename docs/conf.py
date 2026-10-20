@@ -70,7 +70,7 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # a list of builtin themes.
 
 master_doc = "index"
-html_theme = 'pydata_sphinx_theme'
+html_theme = 'sphinx_book_theme'
 
 
 # # Add any paths that contain custom static files (such as style sheets) here,
@@ -82,13 +82,13 @@ html_theme_options = {
     "path_to_docs": "docs",
     "repository_url": "https://github.com/ylseanna/QuakeCorrelate",
     "repository_branch": "master",
-    "use_edit_page_button": True,
-    "use_source_button": True,
-    "use_issues_button": True,
-    # "use_repository_button": True,
-    "use_download_button": True,
-    "use_sidenotes": True,
-    "show_toc_level": 2,
+    # "use_edit_page_button": True,
+    # "use_source_button": True,
+    # "use_issues_button": True,
+    # # "use_repository_button": True,
+    # "use_download_button": True,
+    # "use_sidenotes": True,
+    # "show_toc_level": 2,
     # "announcement": (
     #     "⚠️The latest release refactored our HTML, "
     #     "so double-check your custom CSS rules!⚠️"

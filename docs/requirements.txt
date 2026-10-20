@@ -1,4 +1,5 @@
-pydata-sphinx-theme
+pydata-sphinx-
+sphinx-book-theme
 Sphinx
 sphinx-autobuild
 .
