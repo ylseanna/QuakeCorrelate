@@ -6,4 +6,4 @@ obspy
 scipy
 pandas
 dotenv
-zarr=3.3.0
+zarr
