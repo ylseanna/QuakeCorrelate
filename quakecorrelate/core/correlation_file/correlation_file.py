@@ -17,9 +17,6 @@ from .dtcc import _write_dtcc_parallel, _write_single_event_pair_to_dtcc
 
 logger = logging.getLogger(__name__)
 
-set_start_method("fork")
-
-
 class CorrMatrixDict(TypedDict):
     station: str
     channel: str
@@ -1037,6 +1034,9 @@ class CorrelationFile:
                 horizontal_channels_postfix,
                 vertical_channels_postfix,
             ]
+
+            # ensure we are forking
+            set_start_method("fork", force=True)
 
             pool = Pool(processes=num_processes)
 
