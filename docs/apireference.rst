@@ -2,11 +2,8 @@
  API Reference
 ===============
 
-
-.. autosummary::
-   :toctree: _autosummary
-   :template: custom-module-template.rst
-   :recursive:
-
-   quakecorrelate
+.. autoclass:: quakecorrelate.core.correlation_file.CorrelationFile
+    :members:
+    :inherited-members:
+    :undoc-members:
 
