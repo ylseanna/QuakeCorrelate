@@ -1,1 +1,9 @@
--e . --config-settings editable_mode=strict
+juliacall
+juliapkg
+matplotlib
+numpy
+obspy
+scipy
+pandas
+dotenv
+zarr
