@@ -293,7 +293,7 @@ class Correlator:
         # get slices
         logger.info("    Slicing by station and channel")
         per_station_per_channel_slices = (
-            self.correlation_file.slice_traces_by_station_and_channel(
+            self.correlation_file._slice_traces_by_station_and_channel(
                 primary_event_slice=primary_event_slice,
                 secondary_event_slice=secondary_event_slice,
             )

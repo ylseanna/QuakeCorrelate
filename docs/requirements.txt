@@ -1,4 +1,5 @@
 pydata-sphinx-theme
 Sphinx
 sphinx-autobuild
+sphinx-autodoc-typehints
 .

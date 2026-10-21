@@ -2,8 +2,24 @@
  API Reference
 ===============
 
-.. autoclass:: quakecorrelate.core.correlation_file.CorrelationFile
-    :members:
-    :inherited-members:
-    :undoc-members:
+.. ---------------
+.. Functions
+.. ---------------
+.. toctree::
+    :maxdepth: 3
+
+   api_reference/functions
+   api_reference/classes
+
+.. ---------------
+.. Classes
+.. ---------------
+.. .. toctree::
+..     :maxdepth: 3
+
+..    api_reference/correlation_file
+..    api_reference/correlator
+
+
+
 

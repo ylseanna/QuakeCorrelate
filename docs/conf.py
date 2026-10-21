@@ -13,17 +13,17 @@ from datetime import date
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath('.'))
-sys.path.insert(0, os.path.abspath('../'))
+sys.path.insert(0, os.path.abspath("."))
+sys.path.insert(0, os.path.abspath("../"))
 
 # The master toctree document.
 master_doc = "index"
 
 # -- Project information -----------------------------------------------------
 
-project = 'QuakeCorrelate'
-copyright = "2026-{}, Ylse Anna de Vries, Gabriele Benedetti".format(date.today().year)
-author = 'Ylse Anna de Vries, Gabriele Benedetti'
+project = "QuakeCorrelate"
+copyright = "2025-{}, Ylse Anna de Vries, Gabriele Benedetti".format(date.today().year)
+author = "Ylse Anna de Vries, Gabriele Benedetti"
 
 # The full version, including alpha/beta/rc tags
 # import quakecorrelate
@@ -36,8 +36,8 @@ release = version
 # html_logo = "images/logo_small.png"
 
 html_context = {
-   # ...
-   "default_mode": "light"
+    # ...
+    "default_mode": "light"
 }
 
 # Add any Sphinx extension module names here, as strings. They can be
@@ -49,20 +49,22 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.autosectionlabel",
     "sphinx.ext.napoleon",
+    "sphinx.ext.viewcode",
+    "sphinx_autodoc_typehints",
     # "nbsphinx"
 ]
-napoleon_google_docstring = False
-napoleon_use_param = False
+napoleon_google_docstring = True
+napoleon_use_param = True
 napoleon_use_ivar = True
 napoleon_use_rtype = False
-nbsphinx_execute = 'never'
+napoleon_preprocess_types = True
 # # Add any paths that contain templates here, relative to this directory.
 # templates_path = ['_templates']
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -70,7 +72,7 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # a list of builtin themes.
 
 master_doc = "index"
-html_theme = 'pydata_sphinx_theme'
+html_theme = "pydata_sphinx_theme"
 
 
 # # Add any paths that contain custom static files (such as style sheets) here,
