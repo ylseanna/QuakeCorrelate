@@ -21,9 +21,6 @@ from matplotlib.pyplot import close, figure
 
 logger = logging.getLogger(__name__)
 
-load_dotenv()
-
-
 class Correlator:
     "Correlator Class"
 
@@ -83,16 +80,16 @@ class Correlator:
         interpolate: int | None = None,
         threads_per_block: int = 256,
         lower_triangle: bool = True,
-        plot: bool = False,
-        out_dir: str | Path = "correlation_plots",
-        out_filename: str | Path = "correlation.png",
+        plot_corr_matrix: bool = False,
+        plot_dir: str | Path = "correlation_plots",
+        plot_filename: str | Path = "correlation.png",
     ):
         logger.info(
             f"--- Correlating all events for the selected correlation file and with streams provided ---"
         )
 
-        out_dir = Path(out_dir)
-        out_filename = Path(out_filename)
+        plot_dir = Path(plot_dir)
+        plot_filename = Path(plot_filename)
 
         # write streams
         logger.debug("Writing stream metadata")
@@ -126,145 +123,10 @@ class Correlator:
                 shift_len=shift_len,
                 interpolate=interpolate,
                 threads_per_block=threads_per_block,
-                plot=plot,
+                plot=plot_corr_matrix,
+                plot_dir=plot_dir,
+                plot_filename=plot_filename,
             )
-
-            # if plot:
-            #     Path("./correlation_plots").mkdir(exist_ok=True, parents=True)
-
-            #     fig = figure(figsize=(5, 5), layout="constrained")
-
-            #     ax = fig.add_subplot()
-
-            #     ax.xaxis.tick_top()
-            #     ax.xaxis.set_label_position("top")
-
-            #     crmat = ax.imshow(corr_matrix, vmin=-1, vmax=1, cmap="RdBu")
-
-            #     cbar = fig.colorbar(crmat, ax=ax, shrink=0.6)
-            #     cbar.ax.set_ylabel("correlation value")
-
-            #     ax.set_title(
-            #         f"correlations, station: {station}, channel: {channel}"
-            #     )
-
-            #     ax.set_xlabel("event number")
-            #     ax.set_ylabel("event number")
-
-            #     fig.savefig(
-            #         out_dir
-            #         / (
-            #             out_filename.stem
-            #             + f"_{station}_{channel}"
-            #             + out_filename.suffix
-            #         )
-            #     )
-
-            #     del fig
-
-            #     fig = figure(figsize=(5, 5), layout="constrained")
-
-            #     ax = fig.add_subplot()
-
-            #     ax.xaxis.tick_top()
-            #     ax.xaxis.set_label_position("top")
-
-            #     crmat = ax.imshow(
-            #         (sparse_corr_matrix),
-            #         vmin=-1,
-            #         vmax=1,
-            #         cmap="RdBu",
-            #     )
-
-            #     cbar = fig.colorbar(crmat, ax=ax, shrink=0.6)
-            #     cbar.ax.set_ylabel("correlation value")
-
-            #     ax.set_title(
-            #         f"correlations, station: {station}, channel: {channel}"
-            #     )
-
-            #     ax.set_xlabel("event index")
-            #     ax.set_ylabel("event index")
-
-            #     fig.savefig(
-            #         out_dir
-            #         / (
-            #             out_filename.stem
-            #             + f"_{station}_{channel}_with_empty_vals"
-            #             + out_filename.suffix
-            #         )
-            #     )
-
-            #     close(fig)
-
-            #     logger.info("    plotted cross correlation matrix!")
-
-            # if plot:
-            #     fig = figure(figsize=(7, 7), layout="constrained")
-
-            #     ax = fig.add_subplot()
-
-            #     ax.xaxis.tick_top()
-            #     ax.xaxis.set_label_position("top")
-
-            #     crmat = ax.imshow(
-            #         np.nanmean(vertical_component_corr_matrices, axis=2),
-            #         vmin=0,
-            #         vmax=1,
-            #         cmap="viridis",
-            #     )
-
-            #     cbar = fig.colorbar(crmat, ax=ax, shrink=0.6)
-            #     cbar.ax.set_ylabel("correlation value")
-
-            #     ax.set_title("correlations, cross-channel mean, vertical channels")
-
-            #     ax.set_xlabel("event index")
-            #     ax.set_ylabel("event index")
-
-            #     fig.savefig(
-            #         Path(".")
-            #         / (out_filename.stem + "_cross_channel_vertical" + out_filename.suffix)
-            #     )
-
-            #     close()
-
-            #     print("--- plotted mean vertical cross-channel correlation matrix!")
-
-            #     fig = figure(figsize=(7, 7), layout="constrained")
-
-            #     ax = fig.add_subplot()
-
-            #     ax.xaxis.tick_top()
-            #     ax.xaxis.set_label_position("top")
-
-            #     crmat = ax.imshow(
-            #         np.nanmean(horizontal_component_corr_matrices, axis=2),
-            #         vmin=0,
-            #         vmax=1,
-            #         cmap="viridis",
-            #     )
-
-            #     cbar = fig.colorbar(crmat, ax=ax, shrink=0.6)
-            #     cbar.ax.set_ylabel("correlation value")
-
-            #     ax.set_title("correlations, cross-channel mean, horizontal channels")
-
-            #     ax.set_xlabel("event index")
-            #     ax.set_ylabel("event index")
-
-            #     fig.savefig(
-            #         Path(".")
-            #         / (
-            #             out_filename.stem
-            #             + "_cross_channel_horizontal"
-            #             + out_filename.suffix
-            #         )
-            #     )
-
-            #     close()
-
-            #     print("--- plotted mean horizontal cross-channel correlation matrix!")
 
     def _cross_correlate_slice(
         self,
@@ -277,6 +139,8 @@ class Correlator:
         interpolate: int | None = None,
         threads_per_block: int = 256,
         plot: bool = False,
+        plot_dir: str | Path = "correlation_plots",
+        plot_filename: str | Path = "correlation.png",
     ):
         # get event data
         events = self.correlation_file.events
@@ -584,15 +448,6 @@ class Correlator:
                         self.jl.Matrix, B.T
                     )  # ensure column indexing (for julia)
 
-                ### Cast to proper float precision
-                # NOTE: Metal does not support float64
-
-                if environ["QUAKECORRELATE_GPU_ARCH"] is "Metal":
-                    A = self.jl.Float32(A)
-
-                    if not lower_triangle:
-                        B = self.jl.Float32(B)
-
                 ### actual cross correlation
 
                 logger.info("        Correlating on GPU...")
@@ -714,7 +569,12 @@ class Correlator:
                 logger.info("        Correlations written to disk...")
 
                 if plot:
-                    self.plot_corr_matrix(station=station, channel=channel)
+                    self.plot_corr_matrix(
+                        station=station,
+                        channel=channel,
+                        out_dir=plot_dir,
+                        out_filename=plot_filename,
+                    )
                     logger.info("    plotted cross correlation matrix!")
 
     def plot_corr_matrix(

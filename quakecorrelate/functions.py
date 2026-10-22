@@ -111,21 +111,22 @@ def cross_correlate_seismic_events(
 
     correlator.cross_correlate(
         stream_dict,
-        plot=plot_corr_matrix,
         length=length,
         padding=padding,
         shift_len=shift_len,
         plot_corr_matrix=True if plot_corr_matrix else False,
-        out_dir=(
+        plot_dir=(
             Path(plot_corr_matrix)
             if isinstance(plot_corr_matrix, (str, Path))
-            else None
+            else "correlation_plots"
         ),
     )
 
     if export_to_dtcc:
         correlator.correlation_file.to_dtcc(
-            outfile=export_to_dtcc if isinstance(export_to_dtcc, (str, Path)) else None
+            outfile=(
+                export_to_dtcc if isinstance(export_to_dtcc, (str, Path)) else "dt.cc"
+            )
         )
 
     return correlator.correlation_file
