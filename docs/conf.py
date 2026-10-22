@@ -51,6 +51,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
     "sphinx_autodoc_typehints",
+    "sphinxcontrib.email",
     # "nbsphinx"
 ]
 napoleon_google_docstring = True
@@ -60,6 +61,9 @@ napoleon_use_rtype = False
 napoleon_preprocess_types = True
 # # Add any paths that contain templates here, relative to this directory.
 # templates_path = ['_templates']
+
+email_automode = True
+
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
