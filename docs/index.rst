@@ -35,8 +35,8 @@ Table of Contents
 .. toctree::
    :maxdepth: 2
 
-   usage/quickstart
-   usage/installation
+   quickstart
+   installation
    apireference
 
 -----------------

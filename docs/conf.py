@@ -84,6 +84,11 @@ html_theme = "pydata_sphinx_theme"
 # # so a file named "default.css" will overwrite the builtin "default.css".
 # html_static_path = ['_static']
 
+html_sidebars = {
+    "installation": [],
+    "quickstart": [],
+}
+
 html_theme_options = {
     # "path_to_docs": "docs",
     # "repository_url": "https://github.com/ylseanna/QuakeCorrelate",
