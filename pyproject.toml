@@ -9,7 +9,7 @@ requires = [
     "scipy",
     "pandas",
     "dotenv",
-    "zarr",
+    "zarr[zstd]",
 ]
 build-backend = "setuptools.build_meta"
 

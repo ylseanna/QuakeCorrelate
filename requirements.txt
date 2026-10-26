@@ -6,4 +6,4 @@ obspy
 scipy
 pandas
 dotenv
-zarr
+zarr[zstd]
