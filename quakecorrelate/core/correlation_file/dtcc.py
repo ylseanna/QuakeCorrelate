@@ -93,7 +93,7 @@ def _write_single_event_pair_to_dtcc(
                     weight_value = abs(corr_value) * corr_value
 
                 #
-                single_pair_text_block += f"{station_name:11s} {catalog_differential_time + lag_value:7.4f} {weight_value:5.2f} P\n"
+                single_pair_text_block += f"{station_name:5s} {catalog_differential_time + lag_value:2.4f} {weight_value:1.4f} P\n"
 
         s_phase_channels = [
             channel_name
@@ -162,7 +162,7 @@ def _write_single_event_pair_to_dtcc(
                         weight_value = abs(corr_value) * corr_value
 
                     #
-                    single_pair_text_block += f"{station_name:11s} {catalog_differential_time + lag_value:7.4f} {weight_value:5.2f} S\n"
+                    single_pair_text_block += f"{station_name:5s} {catalog_differential_time + lag_value:2.4f} {weight_value:1.4f} S\n"
 
     # write header
     if len(single_pair_text_block.splitlines()) > 0:

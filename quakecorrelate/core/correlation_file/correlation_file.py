@@ -73,24 +73,24 @@ class CorrelationFile:
             self.catalog: Dict | None = self.root.attrs["catalog"]
             """Dictionary of event catalog entries, including picks, as stored in the metadata and used for processing and exporting, keyed by event ID"""
         else:
-            self.catalog: Dict | None  = None
+            self.catalog: Dict | None = None
 
         if "stations" in self.root.attrs:
-            self.stations: Dict | None  = self.root.attrs["stations"]
+            self.stations: Dict | None = self.root.attrs["stations"]
             """Dictionary of stations as stored in the metadata and used for processing and exporting, keyed by station index."""
         else:
-            self.stations: Dict | None  = None
+            self.stations: Dict | None = None
 
         if "channels" in self.root.attrs:
-            self.channels: Dict | None  = self.root.attrs["channels"]
+            self.channels: Dict | None = self.root.attrs["channels"]
             """Dictionary of stations as stored in the metadata and used for processing and exporting, keyed by station index."""
         else:
-            self.channels: Dict | None  = None
+            self.channels: Dict | None = None
 
         if "events" in self.root.attrs:
-            self.events: Dict | None  = self.root.attrs["events"]
+            self.events: Dict | None = self.root.attrs["events"]
         else:
-            self.events: Dict | None  = None
+            self.events: Dict | None = None
 
     ### add indexing to CorrelationFile object - just refer straight to root
 
@@ -794,7 +794,13 @@ class CorrelationFile:
 
         # event_id_mapping
         if event_id_mapping == "index":
-            event_id_mapping = {k: k for k in events.keys()}
+            key_times = [[k, catalog[v]["origin"]["time"]] for k, v in events.items()]
+
+            key_times.sort(key=lambda x: x[1])
+
+            event_id_mapping = {k_t[0]: i + 1 for i, k_t in enumerate(key_times)}
+
+            self.id_mapping = {events[k]: v for k, v in event_id_mapping.items()}
         elif event_id_mapping is None:
             event_id_mapping = events
 
@@ -885,10 +891,7 @@ class CorrelationFile:
                         vertical_channels_postfix=vertical_channels_postfix,
                     )
 
-        if event_id_mapping == "index":
-            return events
-        elif isinstance(event_id_mapping, dict):
-            return event_id_mapping
+        return event_id_mapping
 
     def to_catalog_file(
         self,

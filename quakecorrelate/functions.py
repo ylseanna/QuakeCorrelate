@@ -23,6 +23,8 @@ def cross_correlate_seismic_events(
     shift_len: float = 1,
     plot_corr_matrix: bool | str | Path = False,
     export_to_dtcc: bool | str | Path = False,
+    event_id_mapping: Dict[str, str] | Literal["index"] | None = None,
+    min_corr_value: float = 0,
 ) -> CorrelationFile:
     """Function to calculate cross correlations for seismic events, on a per station, per component basis.
 
@@ -57,6 +59,10 @@ def cross_correlate_seismic_events(
             Determines whether to plot correlation matrices on the go. If a str or Path object is provided this will be assumed to the output directory for the correlation plots (defaults to 'correlation_plots').
         export_to_dtcc:
             Determines whether to export a dt.cc (differential time) file after finishing the correlation computations. If a str or Path object is provided this will be assumed to the output file name (defaults to 'dt.cc').
+        event_id_mapping:
+            Event ID mapping used for exporting the dt.cc file, only used if *export_to_dtcc* is set to True.
+        min_corr_value:
+            Minimum correlation value that will be exported to the dt.cc file, only used if *export_to_dtcc* is set to True.
     NOTE:
         The shift_len will be increased to a 2^n amount of samples, at the sampling rate of the streams provided. Due to a current limitation of the code.
     Returns:
@@ -126,7 +132,9 @@ def cross_correlate_seismic_events(
         correlator.correlation_file.to_dtcc(
             outfile=(
                 export_to_dtcc if isinstance(export_to_dtcc, (str, Path)) else "dt.cc"
-            )
+            ),
+            event_id_mapping=event_id_mapping,
+            min_corr_value=min_corr_value,
         )
 
     return correlator.correlation_file
