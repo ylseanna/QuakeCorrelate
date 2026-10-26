@@ -50,14 +50,15 @@ def setup_julia(
 ):
     from dotenv import load_dotenv
 
-    import juliapkg as jlPkg
     from juliacall import Main as jl
 
     logger.info("Setting up Julia for QuakeCorrelate...")
 
     load_dotenv()
 
-    jlPkg.add(
+    jl.seval("using Pkg")
+
+    jl.Pkg.add(
         "Squiggles",
         uuid="d934da09-a6a1-40ff-a16a-ac00174578b4",
         url="git@github.com:gbene/Squiggles.jl.git",
@@ -65,19 +66,19 @@ def setup_julia(
 
     if "QUAKECORRELATE_GPU_ARCH" in environ and not gpu_architecture:
         if environ.get("QUAKECORRELATE_GPU_ARCH") == "CUDA":
-            jlPkg.add("CUDA")
+            jl.Pkg.add("CUDA")
         elif environ.get("QUAKECORRELATE_GPU_ARCH") == "Metal":
-            jlPkg.add("Metal")
+            jl.Pkg.add("Metal")
     elif gpu_architecture:
-        jlPkg.add(gpu_architecture)
+        jl.Pkg.add(gpu_architecture)
     else:
         logger.warning(
             "No GPU architecture set in the environment variables (use QUAKECORRELATE_GPU_ARCH in your current environment or .env file.) or in the function call, defaulting to CUDA"
         )
-        jlPkg.add("CUDA")
+        jl.Pkg.add("CUDA")
 
     logger.debug("Resolving jlPkg")
-    jlPkg.resolve()
+    jl.Pkg.resolve()
 
     if "QUAKECORRELATE_GPU_ARCH" in environ and not gpu_architecture:
         if environ.get("QUAKECORRELATE_GPU_ARCH") == "CUDA":
