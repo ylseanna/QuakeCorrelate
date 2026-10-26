@@ -58,11 +58,7 @@ def setup_julia(
 
     jl.seval("using Pkg")
 
-    jl.Pkg.add(
-        "Squiggles",
-        uuid="d934da09-a6a1-40ff-a16a-ac00174578b4",
-        url="git@github.com:gbene/Squiggles.jl.git",
-    )
+    jl.Pkg.add(url="git@github.com:gbene/Squiggles.jl.git")
 
     if "QUAKECORRELATE_GPU_ARCH" in environ and not gpu_architecture:
         if environ.get("QUAKECORRELATE_GPU_ARCH") == "CUDA":
@@ -93,9 +89,9 @@ def setup_julia(
                 logger.info(
                     "Julia will use the default runtime version of CUDA, NOTE: may cause errors on HPC/node-based clusters, use: QUAKECORRELATE_CUDA_RUNTIME_VERSION in your current environment or .env file."
                 )
-        elif environ.get("QUAKECORRELATE_GPU_ARCH") == "Metal":
-            logger.info("Setting julia to use Metal")
-            jl.seval("using Metal")
+        # elif environ.get("QUAKECORRELATE_GPU_ARCH") == "Metal":
+        #     logger.info("Setting julia to use Metal")
+        #     jl.seval("using Metal")
     if gpu_architecture or CUDA_runtime_version:
         if gpu_architecture == "CUDA":
             logger.info("Setting julia to use CUDA")
@@ -107,11 +103,11 @@ def setup_julia(
                 logger.info(
                     "Julia will use the default runtime version of CUDA, NOTE: may cause errors on HPC/node-based clusters, use: QUAKECORRELATE_CUDA_RUNTIME_VERSION in your current environment or .env file, or specify in the function call."
                 )
-        elif gpu_architecture == "Metal":
-            logger.info("Setting julia to use Metal")
-            jl.seval("using Metal")
-    else:
-        logger.warning(
-            "No GPU architecture or QUAKECORRELATE_CUDA_RUNTIME_VERSION set in the environment variables or in the function call, setting Julia to use CUDA"
-        )
-        jl.seval("using CUDA")
+        # elif gpu_architecture == "Metal":
+        #     logger.info("Setting julia to use Metal")
+        #     jl.seval("using Metal")
+    # else:
+    #     logger.warning(
+    #         "No GPU architecture or QUAKECORRELATE_CUDA_RUNTIME_VERSION set in the environment variables or in the function call, setting Julia to use CUDA"
+    #     )
+    #     jl.seval("using CUDA")
