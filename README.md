@@ -1,8 +1,33 @@
 # QuakeCorrelate
 
-It aims to enable fast, open-source 1D cross correlation for seismic data analysis, powered by the GPU, e.g. generating differential times for double-difference relocation, or repeater analysis.
+QuakeCorrelate is a Python package to run large-scale cross correlation of phase arrivals of seismic events. The resulting cross correlation and differential 
+time values can then be used in further processing, notably for methods such as double difference relocation, repeater analysis or other 
+waveform based analysis of large seismic catalogues.
 
-## Current Goals
+QuakeCorrelate is an open-source package written in Python. It embeds the Julia package [Squiggles.jl](https://www.github.com/gbene/Squiggles.jl) to run its
+GPU-based cross correlations. Currently it only support GPU-based cross correlation, on CUDA and Metal GPU architectures.
 
-- benchmark to other commonly used waveform cross correlation softwares
-- using JuliaCall enable interfacing with obspy-compliant waveform storage formats, to make Squiggles.jl as widely avaialable as possible
+QuakeCorrelate is not yet released on PyPI, but can be installed from the repository (https://github.com/QuakeCorrelate), 
+see also in the [documentation](https://quakecorrelate.readthedocs.io).
+
+The package is still under active development.
+
+## Features
+
+- Cross correlation with standard *Obspy* inputs
+- `.zarr` file efficient and parallelisable cross correlation matrix storage with a custom interface.
+- `dt.cc` file output for running [HypoDD](https://github.com/fwaldhauser/HypoDD), [Growclust](https://github.com/dttrugman/GrowClust3D.jl) or [DDsync](https://github.com/eliasrh/DDSync).
+
+## Contact
+
+The developers can be contacted at:
+
+<a href="&#109;&#97;&#105;&#108;&#116;&#111;&#58;&#121;&#97;&#100;&#50;&#64;&#104;&#105;&#46;&#105;&#115;">&#89;&#108;&#115;&#101;&#32;&#65;&#110;&#110;&#97;&#32;&#100;&#101;&#32;&#86;&#114;&#105;&#101;&#115;</a> (<a href="&#109;&#97;&#105;&#108;&#116;&#111;&#58;&#121;&#97;&#100;&#50;&#64;&#104;&#105;&#46;&#105;&#115;">&#121;&#97;&#100;&#50;&#64;&#104;&#105;&#46;&#105;&#115;</a>)
+
+If you find a bug or wish to request a feature, you can go to the issues section on github: https://github.com/ylseanna/QuakeCorrelate/issues.
+
+## Declarations
+
+### Funding
+
+The software was developed as part of a PhD project funded by grant nr. 2410397-051 from the Icelandic Centre for Research (RANNÍS).
