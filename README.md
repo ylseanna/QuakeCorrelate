@@ -7,8 +7,7 @@ waveform based analysis of large seismic catalogues.
 QuakeCorrelate is an open-source package written in Python. It embeds the Julia package [Squiggles.jl](https://www.github.com/gbene/Squiggles.jl) to run its
 GPU-based cross correlations. Currently it only support GPU-based cross correlation, on CUDA and Metal GPU architectures.
 
-QuakeCorrelate is not yet released on PyPI, but can be installed from the repository (https://github.com/QuakeCorrelate), 
-see also in the [documentation](https://quakecorrelate.readthedocs.io).
+QuakeCorrelate is not yet released on PyPI, but can be installed from the source, see also in the [documentation](https://quakecorrelate.readthedocs.io) for a [guide](https://quakecorrelate.readthedocs.io/installation).
 
 The package is still under active development.
 
