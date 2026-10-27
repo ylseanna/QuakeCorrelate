@@ -91,6 +91,11 @@ class CorrelationFile:
             self.events: Dict | None = self.root.attrs["events"]
         else:
             self.events: Dict | None = None
+            
+        if "id_mapping" in self.root.attrs:
+            self.id_mapping: Dict | None = self.root.attrs["id_mapping"]
+        else:
+            self.id_mapping: Dict | None = None
 
     ### add indexing to CorrelationFile object - just refer straight to root
 
@@ -801,6 +806,8 @@ class CorrelationFile:
             event_id_mapping = {k_t[0]: i + 1 for i, k_t in enumerate(key_times)}
 
             self.id_mapping = {events[k]: v for k, v in event_id_mapping.items()}
+            
+            self.root.attrs["id_mapping"] = self.id_mapping
         elif event_id_mapping is None:
             event_id_mapping = events
 
