@@ -18,13 +18,15 @@
 ..   </a>
 .. </p>
 
-QuakeCorrelate is a Python package to run large-scale cross correlation of phase arrivals of seismic events. To facilitate methods such as double difference relocation,
-by using the resulting differential times, repeater analysis or other waveform based analysis of large seismic catalogues.
+QuakeCorrelate is a Python package to run large-scale cross correlation of phase arrivals of seismic events. The resulting cross correlation and differential 
+time values can then be used in further processing, notably for methods such as double difference relocation, repeater analysis or other 
+waveform based analysis of large seismic catalogues.
 
 QuakeCorrelate is an open-source package written in Python. It embeds the Julia package `Squiggles.jl <https://www.github.com/gbene/Squiggles.jl>`_ to run its
 GPU-based cross correlations. Currently it only support GPU-based cross correlation, on CUDA and Metal GPU architectures.
 
-QuakeCorrelate is not yet released on PyPI, but can be installed from the repository (https://github.com/QuakeCorrelate), see the sections :doc:`usage/quickstart` or :doc:`usage/installation`.
+QuakeCorrelate is not yet released on PyPI, but can be installed from the repository (https://github.com/QuakeCorrelate), 
+see the sections :doc:`usage/quickstart` or :doc:`usage/installation`.
 
 The package is still under active development.
 

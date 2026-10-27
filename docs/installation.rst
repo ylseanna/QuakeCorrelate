@@ -3,7 +3,7 @@
 ===============
 
 Here it is explained in detail how to install QuakeCorrelate for different platforms, which have been tested and developed for.
-Support for other platforms can be discussed on the `Issues page <https://github.com/ylseanna/QuakeCorrelate/issue>`_.
+Support for other platforms can be discussed on the `Issues page <https://github.com/ylseanna/QuakeCorrelate/issues>`_.
 
 QuakeCorrelate is a Python package that tries to use common libraries for most of its functionality such as `Obspy <https://www.github.com/obspy/Obspy>`_ and `Pandas <https://pandas.pydata.org>`_ for managing seismic data. 
 For its GPU-based cross correlation functionality it uses `Squiggles.jl <https://www.github.com/gbene/Squiggles.jl>`_, run through `JuliaCall <https://juliapy.github.io/PythonCall.jl>`_.
