@@ -1,5 +1,3 @@
-# QuakeCorrelate
-
 <p align="center">
   <img src="https://github.com/ylseanna/QuakeCorrelate/blob/main/static/quakecorrelatelogo_mediumres.png" alt="QuakeCorrelate Icon"/>
 </p>
@@ -8,6 +6,8 @@
     <img src="https://img.shields.io/badge/License-GPLv3-blue.svg" />
   </a>
 </p>
+
+# QuakeCorrelate
 
 QuakeCorrelate is a Python package to run large-scale cross correlation of phase arrivals of seismic events. The resulting cross correlation and differential 
 time values can then be used in further processing, notably for methods such as double difference relocation, repeater analysis or other 
