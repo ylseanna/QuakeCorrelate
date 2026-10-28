@@ -3,7 +3,7 @@ from typing import Literal, Dict, List
 from pathlib import Path
 import numpy as np
 
-from .core import Correlator
+from .correlator import Correlator
 from .correlation_file import CorrelationFile
 
 

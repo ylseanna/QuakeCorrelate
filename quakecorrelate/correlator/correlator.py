@@ -11,8 +11,8 @@ from matplotlib import use as mpl_use
 from obspy import Catalog, Stream
 from dotenv import load_dotenv
 
-from .util.helper_functions import get_chunks_to_process, next_power_of_2, to_length
-from .correlation_file import CorrelationFile
+from ..util.helper_functions import get_chunks_to_process, next_power_of_2, to_length
+from ..correlation_file import CorrelationFile
 
 mpl_use("Agg")
 from matplotlib.pyplot import close, figure
@@ -147,7 +147,7 @@ class Correlator:
 
         # get julia
         if self.jl is None:
-            from .interface import JuliaInterface
+            from ..interface import JuliaInterface
 
             logger.info("    Accessing Julia")
             self.jl = JuliaInterface()

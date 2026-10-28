@@ -670,9 +670,7 @@ class CorrelationFile:
         logger.info(f"               temp dir: {tempdir}")
 
         # retrieve metadata from file
-        events = self.root.attrs["events"]
-
-        event_indices = [int(index) for index in events.keys()]
+        event_indices = [int(index) for index in self.events.keys()]
 
         # start assigning chunks for processing
         ### NOTE: also necessary for serial processing as not working chunkwise is significantly slower due to continual de-compression of chunk files

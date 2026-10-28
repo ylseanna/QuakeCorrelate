@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 from .functions import cross_correlate_seismic_events  # noqa: F401
 from .correlation_file import CorrelationFile  # noqa: F401
-from .correlator import Correlator  # noqa: F401
+from .correlator.correlator import Correlator  # noqa: F401
 from .interface.julia import setup_julia
 
 load_dotenv()
