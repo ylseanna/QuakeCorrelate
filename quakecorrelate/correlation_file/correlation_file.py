@@ -105,14 +105,12 @@ class CorrelationFile:
     ### WRITE
 
     def write_catalog(self, catalog: Catalog):
-        """Writes a summary catalog of all the events
+        """Writes an Obspy catalogue to the metadata of the correlation file. Must include at least one Origin and the 
+        relevant Picks for the streams that are correlated
+        
+        Arguments:
+            catalog: Obspy Catalog object that is to be written to the metadata. Must include at least one Origin and the picks for the streams to be correlated."""
 
-        Args:
-            catalog (Catalog): _description_
-
-        Note:
-            Uses a non-spec XML file internally as JSON can not be read by obspy natively
-        """
         keyed_catalog_dict = {}
 
         for event in catalog:
@@ -159,7 +157,12 @@ class CorrelationFile:
         # make attribute
         self.catalog = self.root.attrs["catalog"]
 
-    def write_stations(self, stations: list):
+    def write_stations(self, stations: List[str]):
+        """Writes a list of station IDs to the metadata of the correlation file. Must include at least all the station IDs that are to be correlated for.
+        
+        Arguments:
+            stations: List of station IDs (e.g. STA, STAT) that are to be written to the metadata. Must include all the station IDs that are to be correlated for."""
+        
         # ensure sorting
         stations.sort()
 
@@ -190,7 +193,11 @@ class CorrelationFile:
         # make attribute
         self.stations = self.root.attrs["stations"]
 
-    def write_channels(self, channels: list):
+    def write_channels(self, channels: List[str]):
+        """Writes a list of channel IDs to the metadata of the correlation file. Must include at least all the channel IDs that are to be correlated for.
+        
+        Arguments:
+            stations: List of channel IDs (e.g. HHZ, EHN) that are to be written to the metadata. Must include all the channel IDs that are to be correlated for."""
         # ensure sorting
         channels.sort()
 
@@ -221,7 +228,12 @@ class CorrelationFile:
         # link to attribute
         self.channels = self.root.attrs["channels"]
 
-    def write_events(self, events: list):
+    def write_events(self, events: List[str]):
+        """Writes a list of event IDs Must include at least all the event IDs that are to be correlated for, amd must correspond to the Event.resource_id.id() for the Catalog object embedded in the metadata.
+        Will assigns internal integer indices to the events that correspond to the index in the, e.g., correlation and lag matrices.
+        
+        Arguments:
+            events: List of events IDs (e.g. 20170415_test_event) that are to be written to the metadata. Must include all the event IDs that are to be correlated for."""
         # ensure sorting
         events.sort()
 
@@ -804,6 +816,7 @@ class CorrelationFile:
             event_id_mapping = {k_t[0]: i + 1 for i, k_t in enumerate(key_times)}
 
             self.id_mapping = {events[k]: v for k, v in event_id_mapping.items()}
+            """Mapping of event IDS to an index-based (starting at 1), sorted by origin times. Will be None unless an index-based mapping was requested for an export to a dt.file."""
             
             self.root.attrs["id_mapping"] = self.id_mapping
         elif event_id_mapping is None:
@@ -903,6 +916,7 @@ class CorrelationFile:
         outfile: str | Path = "./catalog.txt",
         format: Literal["ddsync"] = "ddsync",
     ):
+        raise NotImplementedError()
         # ensure type
         outfile = Path(outfile)
 
@@ -911,7 +925,6 @@ class CorrelationFile:
 
         catalog = self.root.attrs["catalog"]
 
-        """generate catalog files for various formats of double-difference relocation softwares, based on the .zarr metadata"""
         with outfile.open("w+") as destination:
             for event_id in events.values():
                 event = catalog[event_id]
