@@ -11,7 +11,7 @@ from matplotlib import use as mpl_use
 from obspy import Catalog, Stream
 from dotenv import load_dotenv
 
-from ..util.helper_functions import get_chunks_to_process, next_power_of_2, to_length
+from .util.helper_functions import get_chunks_to_process, next_power_of_2, to_length
 from .correlation_file import CorrelationFile
 
 mpl_use("Agg")

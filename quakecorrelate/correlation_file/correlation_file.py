@@ -12,7 +12,7 @@ from matplotlib.pyplot import close, figure
 from obspy import Catalog, UTCDateTime
 from obspy.core.event import Event
 
-from ...util import ensure_unique_values, get_chunks_to_process
+from ..util import ensure_unique_values, get_chunks_to_process
 from .dtcc import _write_dtcc_parallel, _write_single_event_pair_to_dtcc
 
 logger = logging.getLogger(__name__)

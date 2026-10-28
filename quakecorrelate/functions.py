@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 
 from .core import Correlator
-from .core.correlation_file import CorrelationFile
+from .correlation_file import CorrelationFile
 
 
 def cross_correlate_seismic_events(
