@@ -1,7 +1,7 @@
 # QuakeCorrelate
 
 <p align="center">
-  <img src="https://github.com/ylseanna/QuakeCorrelate/blob/main/static/icons/128x128.png" alt="QuakeView Icon"/>
+  <img src="https://github.com/ylseanna/QuakeCorrelate/blob/main/static/quakecorrelatelogo_mediumres.png" alt="QuakeCorrelate Icon"/>
 </p>
 <p align="center">
   <a href="https://www.gnu.org/licenses/gpl-3.0">
