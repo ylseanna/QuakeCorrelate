@@ -92,7 +92,7 @@ class CorrelationFile:
             """Dictionary of event IDs as stored in the metadata and used for processing and exporting, keyed by index in the, e.g, correlation and lag matrices."""
         else:
             self.events: Dict | None = None
-            
+
         if "id_mapping" in self.root.attrs:
             self.id_mapping: Dict | None = self.root.attrs["id_mapping"]
             """Mapping of event IDS to an index-based (starting at 1), sorted by origin times. Will be :code:`None` unless an index-based mapping was requested for an export to a dt.cc file."""
@@ -107,13 +107,14 @@ class CorrelationFile:
     ### WRITE
 
     def write_catalog(self, catalog: Catalog):
-        """Writes an Obspy catalogue to the metadata of the correlation file. 
-        
-        Must include at least one Origin and the 
+        """Writes an Obspy catalogue to the metadata of the correlation file.
+
+        Must include at least one Origin and the
         relevant Picks for the streams that are correlated
-        
+
         Arguments:
-            catalog: Obspy Catalog object that is to be written to the metadata. Must include at least one Origin and the picks for the streams to be correlated."""
+            catalog: Obspy :code:`Catalog` object that is to be written to the metadata. Must include at least one :code:`Origin` and the :code:`Pick`s for the streams to be correlated.
+        """
 
         keyed_catalog_dict = {}
 
@@ -162,13 +163,14 @@ class CorrelationFile:
         self.catalog = self.root.attrs["catalog"]
 
     def write_stations(self, stations: List[str]):
-        """Writes a list of station IDs to the metadata of the correlation file. 
-        
+        """Writes a list of station IDs to the metadata of the correlation file.
+
         Must include at least all the station IDs that are to be correlated for.
-        
+
         Arguments:
-            stations: List of station IDs (e.g. STA, STAT) that are to be written to the metadata. Must include all the station IDs that are to be correlated for."""
-        
+            stations: List of station IDs (e.g. :code:`STA`, :code:`STAT`) that are to be written to the metadata. Must include all the station IDs that are to be correlated for.
+        """
+
         # ensure sorting
         stations.sort()
 
@@ -200,12 +202,13 @@ class CorrelationFile:
         self.stations = self.root.attrs["stations"]
 
     def write_channels(self, channels: List[str]):
-        """Writes a list of channel IDs to the metadata of the correlation file. 
-        
+        """Writes a list of channel IDs to the metadata of the correlation file.
+
         Must include at least all the channel IDs that are to be correlated for.
-        
+
         Arguments:
-            stations: List of channel IDs (e.g. HHZ, EHN) that are to be written to the metadata. Must include all the channel IDs that are to be correlated for."""
+            stations: List of channel IDs (e.g. :code:`HHZ`, :code:`EHN`) that are to be written to the metadata. Must include all the channel IDs that are to be correlated for.
+        """
         # ensure sorting
         channels.sort()
 
@@ -237,13 +240,14 @@ class CorrelationFile:
         self.channels = self.root.attrs["channels"]
 
     def write_events(self, events: List[str]):
-        """Writes a list of event IDs. 
-        
-        Must include at least all the event IDs that are to be correlated for,namd must correspond to the Event.resource_id.id() for the Catalog object embedded in the metadata.
+        """Writes a list of event IDs.
+
+        Must include at least all the event IDs that are to be correlated for. These IDs must correspond to the various :code`Event.resource_id.id()` for the Catalog object embedded in the metadata.
         Will assigns internal integer indices to the events that correspond to the index in the, e.g., correlation and lag matrices.
-        
+
         Arguments:
-            events: List of events IDs (e.g. 20170415_test_event) that are to be written to the metadata. Must include all the event IDs that are to be correlated for."""
+            events: List of events IDs (e.g. :code:`20170415_test_event`) that are to be written to the metadata. Must include all the event IDs that are to be correlated for.
+        """
         # ensure sorting
         events.sort()
 
@@ -826,7 +830,7 @@ class CorrelationFile:
             event_id_mapping = {k_t[0]: i + 1 for i, k_t in enumerate(key_times)}
 
             self.id_mapping = {events[k]: v for k, v in event_id_mapping.items()}
-            
+
             self.root.attrs["id_mapping"] = self.id_mapping
         elif event_id_mapping is None:
             event_id_mapping = events
