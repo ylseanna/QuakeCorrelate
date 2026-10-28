@@ -3,4 +3,5 @@ Sphinx
 sphinx-autobuild
 sphinx-autodoc-typehints
 sphinxcontrib-email
+sphinx-favicon
 .

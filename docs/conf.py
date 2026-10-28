@@ -40,6 +40,9 @@ html_context = {
     "default_mode": "light"
 }
 
+html_static_path = ["_static"]
+
+
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
@@ -52,6 +55,7 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx_autodoc_typehints",
     "sphinxcontrib.email",
+    "sphinx_favicon",
     # "nbsphinx"
 ]
 napoleon_google_docstring = True
@@ -89,7 +93,30 @@ html_sidebars = {
     "quickstart": [],
 }
 
+html_logo= "_static/logos/quakecorrelatelogo_mediumres.png"
+
+favicons = [
+    # generic icons compatible with most browsers
+    {"href": "favicon/favicon.svg"},
+    "favicon/favicon-96x96.png",
+    "favicon/favicon.ico",
+    {"rel": "shortcut icon", "sizes": "any", "href": "favicon.ico"},
+    # chrome specific
+    "favicon/web-app-manifest-192x192.png",
+    # apple icons
+    {"rel": "apple-touch-icon", "href": "favicon/apple-touch-icon.png"},
+    # to show it works as well with absolute urls
+]
+
+html_css_files = [
+    'css/custom.css',
+]
+
 html_theme_options = {
+    "logo": {
+        "text": "QuakeCorrelate",
+
+    }
     # "path_to_docs": "docs",
     # "repository_url": "https://github.com/ylseanna/QuakeCorrelate",
     # "repository_branch": "master",
