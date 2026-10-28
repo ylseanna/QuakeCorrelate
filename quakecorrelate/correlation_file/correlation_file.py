@@ -816,7 +816,7 @@ class CorrelationFile:
             event_id_mapping = {k_t[0]: i + 1 for i, k_t in enumerate(key_times)}
 
             self.id_mapping = {events[k]: v for k, v in event_id_mapping.items()}
-            """Mapping of event IDS to an index-based (starting at 1), sorted by origin times. Will be None unless an index-based mapping was requested for an export to a dt.file."""
+            """Mapping of event IDS to an index-based (starting at 1), sorted by origin times. Will be None unless an index-based mapping was requested for an export to a dt.cc file."""
             
             self.root.attrs["id_mapping"] = self.id_mapping
         elif event_id_mapping is None:
