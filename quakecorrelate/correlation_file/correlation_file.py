@@ -36,9 +36,14 @@ class ChannelGroup(zarr.Group):
 
 class StationGroup(zarr.Group):
     def __init__(self, GroupInstance: zarr.Group):
+        """Wrapper class for :code:`zarr.Group`  to add functionality for the :code:`.zarr`-file structure used by QuakeCorrelate.
+        
+        Comprises of a group for each station containing groups for each channel that has been correlated for."""
         super(StationGroup, self).__init__(GroupInstance._async_group)
         self.channels = [channel_name for channel_name, _ in self.members()]
+        """List of channel IDs listed for the station ID associated with this group"""
         self.station = str(self.name).replace("/", "")
+        """The station ID of the group"""
 
     def __getitem__(self, path):
         return ChannelGroup(super().__getitem__(path))
