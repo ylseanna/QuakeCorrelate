@@ -63,6 +63,10 @@ Iteration
 Utility classes
 ====================
 
+.. autoclass:: quakecorrelate.correlation_file.CorrelationFileMetadata
+    :members:
+    :undoc-members:
+
 .. autoclass:: quakecorrelate.correlation_file.StationGroup
     :members:
     :undoc-members:

@@ -53,6 +53,7 @@ extensions = [
     "sphinx.ext.autosectionlabel",
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
+    "sphinx.ext.intersphinx",
     "sphinx_autodoc_typehints",
     "sphinxcontrib.email",
     "sphinx_favicon",
@@ -65,6 +66,13 @@ napoleon_use_rtype = False
 napoleon_preprocess_types = True
 # # Add any paths that contain templates here, relative to this directory.
 # templates_path = ['_templates']
+
+intersphinx_mapping = {
+    "python": ("https://docs.python.org/3", None),
+    "obspy": ("https://docs.obspy.org", None),
+    "zarr": ("https://zarr.readthedocs.io", None),
+}
+
 
 email_automode = True
 
@@ -93,7 +101,7 @@ html_sidebars = {
     "quickstart": [],
 }
 
-html_logo= "_static/logos/quakecorrelatelogo_mediumres.png"
+html_logo = "_static/logos/quakecorrelatelogo_mediumres.png"
 
 favicons = [
     # generic icons compatible with most browsers
@@ -109,13 +117,12 @@ favicons = [
 ]
 
 html_css_files = [
-    'css/custom.css',
+    "css/custom.css",
 ]
 
 html_theme_options = {
     "logo": {
         "text": "QuakeCorrelate",
-
     }
     # "path_to_docs": "docs",
     # "repository_url": "https://github.com/ylseanna/QuakeCorrelate",

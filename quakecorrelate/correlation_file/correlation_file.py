@@ -8,6 +8,7 @@ from multiprocessing import Pool, set_start_method
 import numpy as np
 import pandas as pd
 import zarr
+from zarr import Array
 from matplotlib.pyplot import close, figure
 from obspy import Catalog, UTCDateTime
 from obspy.core.event import Event
@@ -32,13 +33,13 @@ class ChannelGroup(zarr.Group):
 
     def __init__(self, GroupInstance: zarr.Group):
         super(ChannelGroup, self).__init__(GroupInstance._async_group)
-        self.channel = str(Path(self.name).stem).replace("/", "")
+        self.channel: str = str(Path(self.name).stem).replace("/", "")
         """The channel ID of the group"""
 
         # make attributes for available arrays
-        self.corr_values = self["corr_values"] if "corr_values" in self else None
+        self.corr_values: Array = self["corr_values"] if "corr_values" in self else None
         """The :code:`.zarr`-array instance containing the computed correlation values."""
-        self.lag_values = self["lag_values"] if "lag_values" in self else None
+        self.lag_values: Array = self["lag_values"] if "lag_values" in self else None
         """The :code:`.zarr`-array instance containing the computed lag values, in seconds."""
 
 
@@ -50,9 +51,9 @@ class StationGroup(zarr.Group):
 
     def __init__(self, GroupInstance: zarr.Group):
         super(StationGroup, self).__init__(GroupInstance._async_group)
-        self.channels = [channel_name for channel_name, _ in self.members()]
+        self.channels: List[str] = [channel_name for channel_name, _ in self.members()]
         """List of channel IDs listed for the station ID associated with this group"""
-        self.station = str(self.name).replace("/", "")
+        self.station: str = str(self.name).replace("/", "")
         """The station ID of the group"""
 
     def __getitem__(self, path):
@@ -320,7 +321,8 @@ class CorrelationFile:
             **root_args,  # overwrite or else default
         )
 
-        self.metadata = CorrelationFileMetadata(self.root.attrs)
+        self.metadata: CorrelationFileMetadata = CorrelationFileMetadata(self.root.attrs)
+        """Metadata object containing metadata for the cross correlation, including e.g. station IDs, channel IDs, the event catalog, and optional Event ID to indexed ID for dt.cc export."""
 
     ### add indexing to CorrelationFile object - just refer straight to root
 
