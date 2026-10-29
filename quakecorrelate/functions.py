@@ -16,8 +16,8 @@ def cross_correlate_seismic_events(
     platform: Literal["gpu", "cpu"] = "gpu",
     write_block_size: int = 1000,
     read_block_size: int = 100,
-    stations: List[str] | None = None,
-    channels: List[str] | None = None,
+    stations: List[str] | Literal["all"] = "all",
+    channels: List[str] |  Literal["all"] = "all",
     length: float | None = None,
     padding: float = 0,
     shift_len: float = 1,
@@ -82,41 +82,18 @@ def cross_correlate_seismic_events(
             "No cpu-based cross correlations have been implemented yet."
         )
 
-    # organise data
-    if stations is None:
-        stations = np.unique(
-            np.concatenate(
-                [
-                    [trace.stats.station for trace in stream.traces]
-                    for stream in stream_dict.values()
-                ]
-            )
-        )
-        # find all the unique sorted station ids among all the traces of all the streams
-
-    if channels is None:
-        channels = np.unique(
-            np.concatenate(
-                [
-                    [trace.stats.channel for trace in stream.traces]
-                    for stream in stream_dict.values()
-                ]
-            )
-        )
-        # find all the unique sorted channel ids among all the traces of all the streams
-
     correlator = Correlator(
         corr_file=corr_file,
         overwrite_corr_file=overwrite_corr_file,
-        catalog=catalog,
-        stations=stations,
-        channels=channels,
         shardsize=write_block_size,
         chunksize=read_block_size,
     )
 
     correlator.cross_correlate(
         stream_dict,
+        catalog=catalog,
+        stations="all" if not stations else stations,
+        channels="all" if not channels else channels,
         length=length,
         padding=padding,
         shift_len=shift_len,

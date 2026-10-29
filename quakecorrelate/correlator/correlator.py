@@ -4,7 +4,7 @@ from itertools import chain
 from math import ceil
 from os import environ
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Literal
 
 import numpy as np
 from matplotlib import use as mpl_use
@@ -23,7 +23,15 @@ logger = logging.getLogger(__name__)
 
 
 class Correlator:
-    "Correlator Class"
+    """Utility class for running the seismic cross correlation, and some related functions, such as plotting the calculated correlations.
+
+    Args:
+        corr_file: Correlation file to be used by the correlator to write the correlations to, will generate a new one if it is not present.
+        overwrite_corr_file: Whether to empty any existing correlation file, i.e. run a clean slate run.
+        shardsize: Size of the 'shards' in the data matrices. Corresponds to the size of the matrices that can be written independently.
+        chunksize: Size of the 'chunks' in the data matrices. Corresponds to the size of the matrices that can be read independently.
+
+    """
 
     def __init__(
         self,
@@ -31,9 +39,6 @@ class Correlator:
         overwrite_corr_file: bool = False,
         shardsize: int = 1000,
         chunksize: int = 100,
-        catalog: Catalog | None = None,
-        stations: List[str] | None = None,
-        channels: List[str] | None = None,
     ):
         # ensuring input type
         corr_file = Path(corr_file)
@@ -57,24 +62,12 @@ class Correlator:
             chunksize=chunksize,
         )
 
-        # input catalog into .zarr file
-        if catalog is not None:
-            logger.debug(f"Writing catalog metadata {catalog}")
-            self.correlation_file.metadata.write_catalog(catalog)
-
-        # input stations into .zarr file
-        if stations is not None:
-            logger.debug(f"Writing station metadata {stations}")
-            self.correlation_file.metadata.write_stations(stations)
-
-        # input channels into .zarr file
-        if channels is not None:
-            logger.debug(f"Writing channel metadata {channels}")
-            self.correlation_file.metadata.write_channels(channels)
-
     def cross_correlate(
         self,
         stream_dict: Dict[str, Stream],
+        catalog: Catalog | None = None,
+        stations: List[str] | Literal["all"] | None = None,
+        channels: List[str] | Literal["all"] | None = None,
         length: float | None = None,
         padding: float = 0.0,
         shift_len: float = 1.0,
@@ -85,6 +78,67 @@ class Correlator:
         plot_dir: str | Path = "correlation_plots",
         plot_filename: str | Path = "correlation.png",
     ):
+        """_summary_
+
+        Args:
+            stream_dict: _description_
+            catalog: Obspy catalog whose events are to be processed. Will be written to the correlation file metadata. Setting to :code:`None` will cause the metadata to remain untouched (useful if previously set, but will cause errors otherwise).
+            stations: List of station IDs to be processed, or "all" to dynamically include all station IDs present in the streams. Will be written to the correlation file metadata. Setting to :code:`None` will cause the metadata to remain untouched (useful if previously set, but will cause errors otherwise).
+            channels: List of channels IDs to be processed, or "all" to dynamically include all channel IDs present in the streams. Will be written to the correlation file metadata. Setting to :code:`None` will cause the metadata to remain untouched (useful if previously set, but will cause errors otherwise).
+            length: **TO BE CHANGED**
+            padding: **TO BE CHANGED**
+            shift_len: **TO BE CHANGED**
+            interpolate: **TO BE CHANGED**
+            threads_per_block: **TO BE CHANGED**
+            lower_triangle: **TO BE CHANGED**
+            plot_corr_matrix: Whether to plot correlation matrices while the calculations are running.
+            plot_dir:  Output directory for the plots.
+            plot_filename: Filename for the correlation matrix plots, will append station and channel information.
+        """
+        ### metadata
+
+        if catalog is not None:
+            logger.debug(f"Writing catalog metadata {catalog}")
+            self.correlation_file.metadata.write_catalog(catalog)
+
+        # input stations into .zarr file
+        if stations is not None:
+            if stations == "all":
+                stations = np.unique(
+                    np.concatenate(
+                        [
+                            [trace.stats.station for trace in stream.traces]
+                            for stream in stream_dict.values()
+                        ]
+                    )
+                )
+                logger.debug(
+                    f"Writing stations to metadata for all stations present {stations}"
+                )
+                self.correlation_file.metadata.write_stations(stations)
+            else:
+                logger.debug(f"Writing stations to metadata {stations}")
+                self.correlation_file.metadata.write_stations(stations)
+
+        # input channels into .zarr file
+        if channels is not None:
+            if channels == "all":
+                channels = np.unique(
+                    np.concatenate(
+                        [
+                            [trace.stats.channel for trace in stream.traces]
+                            for stream in stream_dict.values()
+                        ]
+                    )
+                )
+                logger.debug(
+                    f"Writing channels to metadata for all channels present {channels}"
+                )
+                self.correlation_file.metadata.write_channels(channels)
+            else:
+                logger.debug(f"Writing channels to metadata {channels}")
+                self.correlation_file.metadata.write_channels(channels)
+
         logger.info(
             f"--- Correlating all events for the selected correlation file and with streams provided ---"
         )
@@ -588,6 +642,21 @@ class Correlator:
         slice_stepwise: int | None = None,
         normalized: bool = True,
     ):
+        """Utitility function for plotting correlation matrices.
+
+        .. admonition :: Note from the developer
+
+            Subject to change as it is currently not aimed at general use. I typically use my own plotting code, which is based on the one shown below.
+
+        Args:
+            station: station to plot
+            channel: channel to plot
+            indices: Indices of the square matrix to plot.
+            plot_dir:  Output directory for the plots.
+            plot_filename: Filename for the correlation matrix plots, will append station and channel information.
+            slice_stepwise: The slicing step for plotting
+            normalized: Whether to adjust the colourmap to the data, or to just set to -1 to 1.
+        """
         # ensure types
         out_dir = Path(out_dir)
         out_filename = Path(out_filename)
