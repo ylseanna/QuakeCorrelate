@@ -68,7 +68,7 @@ class CorrelationFileMetadata:
 
     They alias properties set in the attributes table of the .zarr file"""
 
-    def __init__(self, zarr_file_attributes: zarr.Group.attr):
+    def __init__(self, zarr_file_attributes: zarr.Group.attrs):
 
         self.attrs = zarr_file_attributes
 
@@ -343,7 +343,7 @@ class CorrelationFile:
         secondary_event_slice: Literal["all"] | Tuple[int, int] = "all",
     ):
         # retrieve metadata from file
-        events = self.attrs["events"]
+        events = self.metadata.events
 
         event_indices = [int(index) for index in events.keys()]
 
@@ -395,7 +395,7 @@ class CorrelationFile:
         secondary_event_slice: Literal["all"] | Tuple[int, int] = "all",
     ):
         # retrieve metadata from file
-        events = self.attrs["events"]
+        events = self.metadata.events
 
         event_indices = [int(index) for index in events.keys()]
 
@@ -885,9 +885,9 @@ class CorrelationFile:
 
             event_id_mapping = {k_t[0]: i + 1 for i, k_t in enumerate(key_times)}
 
-            self.id_mapping = {events[k]: v for k, v in event_id_mapping.items()}
+            self.metadata.id_mapping = {events[k]: v for k, v in event_id_mapping.items()}
 
-            self.attrs["id_mapping"] = self.id_mapping
+            self.root.attrs["id_mapping"] = self.metadata.id_mapping
         elif event_id_mapping is None:
             event_id_mapping = events
 

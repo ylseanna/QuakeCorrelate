@@ -21,6 +21,7 @@ from matplotlib.pyplot import close, figure
 
 logger = logging.getLogger(__name__)
 
+
 class Correlator:
     "Correlator Class"
 
@@ -59,17 +60,17 @@ class Correlator:
         # input catalog into .zarr file
         if catalog is not None:
             logger.debug(f"Writing catalog metadata {catalog}")
-            self.correlation_file.write_catalog(catalog)
+            self.correlation_file.metadata.write_catalog(catalog)
 
         # input stations into .zarr file
         if stations is not None:
             logger.debug(f"Writing station metadata {stations}")
-            self.correlation_file.write_stations(stations)
+            self.correlation_file.metadata.write_stations(stations)
 
         # input channels into .zarr file
         if channels is not None:
             logger.debug(f"Writing channel metadata {channels}")
-            self.correlation_file.write_channels(channels)
+            self.correlation_file.metadata.write_channels(channels)
 
     def cross_correlate(
         self,
@@ -93,10 +94,10 @@ class Correlator:
 
         # write streams
         logger.debug("Writing stream metadata")
-        self.correlation_file.write_events(list(stream_dict.keys()))
+        self.correlation_file.metadata.write_events(list(stream_dict.keys()))
 
         # get event data
-        events = self.correlation_file.events
+        events = self.correlation_file.metadata.events
 
         all_event_indices = [int(index) for index in events.keys()]
 
@@ -143,7 +144,7 @@ class Correlator:
         plot_filename: str | Path = "correlation.png",
     ):
         # get event data
-        events = self.correlation_file.events
+        events = self.correlation_file.metadata.events
 
         # get julia
         if self.jl is None:
@@ -596,9 +597,9 @@ class Correlator:
 
         # get data
         if not slice_stepwise:
-            corr_matrix = self.correlation_file.root[station][channel]["corr_values"]
+            corr_matrix = self.correlation_file[station][channel].corr_values
         else:
-            corr_matrix = self.correlation_file.root[station][channel]["corr_values"][
+            corr_matrix = self.correlation_file[station][channel].corr_values[
                 ::slice_stepwise
             ]
 
