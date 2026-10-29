@@ -1,1 +1,2 @@
-from .correlation_file import CorrelationFile, StationGroup, ChannelGroup, CorrelationFileMetadata  # noqa: F401
+from .correlation_file import CorrelationFile
+from .classes import StationGroup, ChannelGroup, CorrelationFileMetadata  # noqa: F401
