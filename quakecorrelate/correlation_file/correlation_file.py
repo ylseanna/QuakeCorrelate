@@ -25,20 +25,30 @@ class CorrMatrixDict(TypedDict):
 
 
 class ChannelGroup(zarr.Group):
+    """Wrapper class for :code:`zarr.Group` (`doc <https://zarr.readthedocs.io/en/stable/api/zarr/group/#zarr.Group>`_)  to add functionality for the :code:`.zarr`-file structure used by QuakeCorrelate.
+
+    Comprises of a group for each channel that has been correlated for. It contains arrays for the correlation values and lag values, if the computation has run.
+    """
+
     def __init__(self, GroupInstance: zarr.Group):
         super(ChannelGroup, self).__init__(GroupInstance._async_group)
         self.channel = str(Path(self.name).stem).replace("/", "")
-        
+        """The channel ID of the group"""
+
         # make attributes for available arrays
         self.corr_values = self["corr_values"] if "corr_values" in self else None
+        """The :code:`.zarr`-array instance containing the computed correlation values."""
         self.lag_values = self["lag_values"] if "lag_values" in self else None
+        """The :code:`.zarr`-array instance containing the computed lag values, in seconds."""
 
 
 class StationGroup(zarr.Group):
+    """Wrapper class for :code:`zarr.Group` (`doc <https://zarr.readthedocs.io/en/stable/api/zarr/group/#zarr.Group>`_) to add functionality for the :code:`.zarr`-file structure used by QuakeCorrelate.
+
+    Comprises of a group for each station containing groups for each channel that has been correlated for.
+    """
+
     def __init__(self, GroupInstance: zarr.Group):
-        """Wrapper class for :code:`zarr.Group`  to add functionality for the :code:`.zarr`-file structure used by QuakeCorrelate.
-        
-        Comprises of a group for each station containing groups for each channel that has been correlated for."""
         super(StationGroup, self).__init__(GroupInstance._async_group)
         self.channels = [channel_name for channel_name, _ in self.members()]
         """List of channel IDs listed for the station ID associated with this group"""
@@ -53,92 +63,45 @@ class StationGroup(zarr.Group):
             yield ChannelGroup(channel_group)
 
 
-class CorrelationFile:
-    """Main interface for the correlation file written to during cross correlations.
+class CorrelationFileMetadata:
+    """Wrapper class for a number of metadata parameters for the Correlation File object.
 
-    Args:
-        filename: The filename of the .zarr file used to write correlations to, not used if *in_memory* is enabled
-        in_memory: Description.
-        overwrite_file: Whether or not to create a fresh correlation file, overwriting the existing one if needed.
-        chunksize: The (squared) size of the chunks used for reading data arrays from the correlation file, determines the size of chunks when processing the correlations into a output format (e.g. dt.cc).
-        shardsize: The (squared) size of the shards used for writing data arrays from the correlation file, determines the size of chunks processed during cross correlations.
+    They alias properties set in the attributes table of the .zarr file"""
 
+    def __init__(self, zarr_file_attributes: zarr.Group.attr):
 
-    """
-
-    def __init__(
-        self,
-        filename: str | Path = "./correlations.zarr",
-        in_memory: bool = False,
-        overwrite_file: bool = False,
-        chunksize: int = 100,
-        shardsize: int = 1000,
-    ):
-        # args
-        self.filename: str = str(filename)
-        """The filename of the .zarr file used to write correlations to"""
-        self.chunksize: int = chunksize
-        """The (squared) size of the chunks used for reading data arrays from the correlation file, determines the size of chunks when processing the correlations into a output format (e.g. dt.cc)"""
-        self.shardsize: int = shardsize
-        """The (squared) size of the shards used for writing data arrays from the correlation file, determines the size of chunks processed during cross correlations."""
-
-        filename = Path(filename)
-
-        if overwrite_file:
-            root_args = dict(mode="w")
-        else:
-            root_args = dict()
-
-        # open (or create) zarr file
-        self.root = zarr.open_group(
-            store=(
-                filename if not in_memory else zarr.storage.MemoryStore()
-            ),  # keep story in memory, suitable for small correlation batches used for internal processes
-            **root_args,  # overwrite or else default
-        )
+        self.attrs = zarr_file_attributes
 
         # get attributes
-        if "catalog" in self.root.attrs:
-            self.catalog: Dict | None = self.root.attrs["catalog"]
+        if "catalog" in self.attrs:
+            self.catalog: Dict | None = self.attrs["catalog"]
             """Dictionary of event catalog entries, including picks, as stored in the metadata and used for processing and exporting, keyed by event ID"""
         else:
             self.catalog: Dict | None = None
 
-        if "stations" in self.root.attrs:
-            self.stations: Dict | None = self.root.attrs["stations"]
+        if "stations" in self.attrs:
+            self.stations: Dict | None = self.attrs["stations"]
             """Dictionary of stations as stored in the metadata and used for processing and exporting, keyed by station index."""
         else:
             self.stations: Dict | None = None
 
-        if "channels" in self.root.attrs:
-            self.channels: Dict | None = self.root.attrs["channels"]
+        if "channels" in self.attrs:
+            self.channels: Dict | None = self.attrs["channels"]
             """Dictionary of stations as stored in the metadata and used for processing and exporting, keyed by station index."""
         else:
             self.channels: Dict | None = None
 
-        if "events" in self.root.attrs:
-            self.events: Dict | None = self.root.attrs["events"]
+        if "events" in self.attrs:
+            self.events: Dict | None = self.attrs["events"]
             """Dictionary of event IDs as stored in the metadata and used for processing and exporting, keyed by index in the, e.g, correlation and lag matrices."""
         else:
             self.events: Dict | None = None
 
-        if "id_mapping" in self.root.attrs:
-            self.id_mapping: Dict | None = self.root.attrs["id_mapping"]
+        if "id_mapping" in self.attrs:
+            self.id_mapping: Dict | None = self.attrs["id_mapping"]
             """Mapping of event IDs to an index-based (starting at 1), sorted by origin times. Will be :code:`None` unless an index-based mapping was requested for an export to a dt.cc file."""
         else:
             self.id_mapping: Dict | None = None
-
-    ### add indexing to CorrelationFile object - just refer straight to root
-
-    def __getitem__(self, index):
-        return StationGroup(self.root[index])
-
-    ### iterate over station names
-    def __iter__(self):
-        for station in self.root:
-            yield StationGroup(self.root[station])
-
-    ### WRITE
 
     def write_catalog(self, catalog: Catalog):
         """Writes an Obspy catalogue to the metadata of the correlation file.
@@ -191,10 +154,10 @@ class CorrelationFile:
 
             keyed_catalog_dict[event_id] = event_dict
 
-        self.root.attrs["catalog"] = keyed_catalog_dict
+        self.attrs["catalog"] = keyed_catalog_dict
 
         # make attribute
-        self.catalog = self.root.attrs["catalog"]
+        self.catalog = self.attrs["catalog"]
 
     def write_stations(self, stations: List[str]):
         """Writes a list of station IDs to the metadata of the correlation file.
@@ -209,12 +172,12 @@ class CorrelationFile:
         stations.sort()
 
         # insert stations into attributes
-        if "stations" not in self.root.attrs:  # if not old values exist just insert
+        if "stations" not in self.attrs:  # if not old values exist just insert
             keyed_station_dict = ensure_unique_values(
                 {str(index): str(station) for index, station in enumerate(stations)}
             )
         else:  # combine both dictionaries, with new keys
-            keyed_station_dict_old = self.root.attrs["stations"]
+            keyed_station_dict_old = self.attrs["stations"]
 
             max_index = max([int(key) for key in keyed_station_dict_old.keys()])
 
@@ -230,10 +193,10 @@ class CorrelationFile:
             )  # by appending to end we ensure proper ordering
 
         # insert into attributes
-        self.root.attrs["stations"] = keyed_station_dict
+        self.attrs["stations"] = keyed_station_dict
 
         # make attribute
-        self.stations = self.root.attrs["stations"]
+        self.stations = self.attrs["stations"]
 
     def write_channels(self, channels: List[str]):
         """Writes a list of channel IDs to the metadata of the correlation file.
@@ -247,12 +210,12 @@ class CorrelationFile:
         channels.sort()
 
         # insert channels into attributes
-        if "channels" not in self.root.attrs:  # if not old values exist just insert
+        if "channels" not in self.attrs:  # if not old values exist just insert
             keyed_channel_dict = ensure_unique_values(
                 {str(index): str(channel) for index, channel in enumerate(channels)}
             )
         else:  # combine both dictionaries, with new keys
-            keyed_channel_dict_old = self.root.attrs["channels"]
+            keyed_channel_dict_old = self.attrs["channels"]
 
             max_index = max([int(key) for key in keyed_channel_dict_old.keys()])
 
@@ -268,10 +231,10 @@ class CorrelationFile:
             )  # by appending to end we ensure proper ordering
 
         # insert into attributes
-        self.root.attrs["channels"] = keyed_channel_dict
+        self.attrs["channels"] = keyed_channel_dict
 
         # link to attribute
-        self.channels = self.root.attrs["channels"]
+        self.channels = self.attrs["channels"]
 
     def write_events(self, events: List[str]):
         """Writes a list of event IDs.
@@ -286,12 +249,12 @@ class CorrelationFile:
         events.sort()
 
         # insert events into attributes
-        if "events" not in self.root.attrs:  # if not old values exist just insert
+        if "events" not in self.attrs:  # if not old values exist just insert
             keyed_event_dict = ensure_unique_values(
                 {str(index): str(event) for index, event in enumerate(events)}
             )
         else:  # combine both dictionaries, with new keys
-            keyed_event_dict_old = self.root.attrs["events"]
+            keyed_event_dict_old = self.attrs["events"]
 
             max_index = max([int(key) for key in keyed_event_dict_old.keys()])
 
@@ -307,10 +270,69 @@ class CorrelationFile:
             )  # by appending to end we ensure proper ordering
 
         # insert into attributes
-        self.root.attrs["events"] = keyed_event_dict
+        self.attrs["events"] = keyed_event_dict
 
         # link to attribute
-        self.events = self.root.attrs["events"]
+        self.events = self.attrs["events"]
+
+
+class CorrelationFile:
+    """Main interface for the correlation file written to during cross correlations.
+
+    Args:
+        filename: The filename of the .zarr file used to write correlations to, not used if *in_memory* is enabled
+        in_memory: Description.
+        overwrite_file: Whether or not to create a fresh correlation file, overwriting the existing one if needed.
+        chunksize: The (squared) size of the chunks used for reading data arrays from the correlation file, determines the size of chunks when processing the correlations into a output format (e.g. dt.cc).
+        shardsize: The (squared) size of the shards used for writing data arrays from the correlation file, determines the size of chunks processed during cross correlations.
+
+
+    """
+
+    def __init__(
+        self,
+        filename: str | Path = "./correlations.zarr",
+        in_memory: bool = False,
+        overwrite_file: bool = False,
+        chunksize: int = 100,
+        shardsize: int = 1000,
+    ):
+        # args
+        self.filename: str = str(filename)
+        """The filename of the .zarr file used to write correlations to"""
+        self.chunksize: int = chunksize
+        """The (squared) size of the chunks used for reading data arrays from the correlation file, determines the size of chunks when processing the correlations into a output format (e.g. dt.cc)"""
+        self.shardsize: int = shardsize
+        """The (squared) size of the shards used for writing data arrays from the correlation file, determines the size of chunks processed during cross correlations."""
+
+        filename = Path(filename)
+
+        if overwrite_file:
+            root_args = dict(mode="w")
+        else:
+            root_args = dict()
+
+        # open (or create) zarr file
+        self.root = zarr.open_group(
+            store=(
+                filename if not in_memory else zarr.storage.MemoryStore()
+            ),  # keep story in memory, suitable for small correlation batches used for internal processes
+            **root_args,  # overwrite or else default
+        )
+
+        self.metadata = CorrelationFileMetadata(self.root.attrs)
+
+    ### add indexing to CorrelationFile object - just refer straight to root
+
+    def __getitem__(self, index):
+        return StationGroup(self.root[index])
+
+    ### iterate over station names
+    def __iter__(self):
+        for station in self.root:
+            yield StationGroup(self.root[station])
+
+    ### WRITE
 
     def write_correlation_matrix(
         self,
@@ -321,7 +343,7 @@ class CorrelationFile:
         secondary_event_slice: Literal["all"] | Tuple[int, int] = "all",
     ):
         # retrieve metadata from file
-        events = self.root.attrs["events"]
+        events = self.attrs["events"]
 
         event_indices = [int(index) for index in events.keys()]
 
@@ -373,7 +395,7 @@ class CorrelationFile:
         secondary_event_slice: Literal["all"] | Tuple[int, int] = "all",
     ):
         # retrieve metadata from file
-        events = self.root.attrs["events"]
+        events = self.attrs["events"]
 
         event_indices = [int(index) for index in events.keys()]
 
@@ -427,11 +449,11 @@ class CorrelationFile:
         Dict[str, Dict[str, List[int]]]
         | Dict[str, Dict[str, Tuple[List[int], List[int]]]]
     ):
-        event_indices = [int(index) for index in self.events.keys()]
+        event_indices = [int(index) for index in self.metadata.events.keys()]
 
-        stations = list(self.stations.values())
+        stations = list(self.metadata.stations.values())
 
-        channels = list(self.channels.values())
+        channels = list(self.metadata.channels.values())
 
         slice_dict = {}
 
@@ -444,9 +466,9 @@ class CorrelationFile:
             )
 
             for event_index in event_indices_slice:
-                event_id = self.events[str(event_index)]
+                event_id = self.metadata.events[str(event_index)]
 
-                event_info = self.catalog[event_id]
+                event_info = self.metadata.catalog[event_id]
 
                 for pick in event_info["picks"]:
                     if (
@@ -481,9 +503,9 @@ class CorrelationFile:
             )
 
             for event_index in primary_event_indices:
-                event_id = self.events[str(event_index)]
+                event_id = self.metadata.events[str(event_index)]
 
-                event_info = self.catalog[event_id]
+                event_info = self.metadata.catalog[event_id]
 
                 for pick in event_info["picks"]:
                     if (
@@ -504,9 +526,9 @@ class CorrelationFile:
                         ].append(int(event_index))
 
             for event_index in secondary_event_indices:
-                event_id = self.events[str(event_index)]
+                event_id = self.metadata.events[str(event_index)]
 
-                event_info = self.catalog[event_id]
+                event_info = self.metadata.catalog[event_id]
 
                 for pick in event_info["picks"]:
                     if (
@@ -730,7 +752,7 @@ class CorrelationFile:
         logger.info(f"               temp dir: {tempdir}")
 
         # retrieve metadata from file
-        event_indices = [int(index) for index in self.events.keys()]
+        event_indices = [int(index) for index in self.metadata.events.keys()]
 
         # start assigning chunks for processing
         ### NOTE: also necessary for serial processing as not working chunkwise is significantly slower due to continual de-compression of chunk files
@@ -849,9 +871,9 @@ class CorrelationFile:
         vertical_channels_postfix: Tuple[str] = ("Z", "3"),
     ):
         # retrieve metadata from file
-        events = self.events
+        events = self.metadata.events
 
-        catalog = self.catalog
+        catalog = self.metadata.catalog
 
         event_indices = [int(index) for index in events.keys()]
 
@@ -865,7 +887,7 @@ class CorrelationFile:
 
             self.id_mapping = {events[k]: v for k, v in event_id_mapping.items()}
 
-            self.root.attrs["id_mapping"] = self.id_mapping
+            self.attrs["id_mapping"] = self.id_mapping
         elif event_id_mapping is None:
             event_id_mapping = events
 
@@ -968,9 +990,9 @@ class CorrelationFile:
         outfile = Path(outfile)
 
         # get metadata
-        events = self.root.attrs["events"]
+        events = self.attrs["events"]
 
-        catalog = self.root.attrs["catalog"]
+        catalog = self.attrs["catalog"]
 
         with outfile.open("w+") as destination:
             for event_id in events.values():
