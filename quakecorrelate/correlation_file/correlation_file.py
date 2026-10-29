@@ -24,6 +24,30 @@ class CorrMatrixDict(TypedDict):
     corr_matrix: np.ndarray
 
 
+class ChannelGroup(zarr.Group):
+    def __init__(self, GroupInstance: zarr.Group):
+        super(ChannelGroup, self).__init__(GroupInstance._async_group)
+        self.channel = str(Path(self.name).stem).replace("/", "")
+        
+        # make attributes for available arrays
+        self.corr_values = self["corr_values"] if "corr_values" in self else None
+        self.lag_values = self["lag_values"] if "lag_values" in self else None
+
+
+class StationGroup(zarr.Group):
+    def __init__(self, GroupInstance: zarr.Group):
+        super(StationGroup, self).__init__(GroupInstance._async_group)
+        self.channels = [channel_name for channel_name, _ in self.members()]
+        self.station = str(self.name).replace("/", "")
+
+    def __getitem__(self, path):
+        return ChannelGroup(super().__getitem__(path))
+
+    def __iter__(self):
+        for _, channel_group in self.members():
+            yield ChannelGroup(channel_group)
+
+
 class CorrelationFile:
     """Main interface for the correlation file written to during cross correlations.
 
@@ -102,7 +126,12 @@ class CorrelationFile:
     ### add indexing to CorrelationFile object - just refer straight to root
 
     def __getitem__(self, index):
-        return self.root[index]
+        return StationGroup(self.root[index])
+
+    ### iterate over station names
+    def __iter__(self):
+        for station in self.root:
+            yield StationGroup(self.root[station])
 
     ### WRITE
 
