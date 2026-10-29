@@ -6,7 +6,7 @@
 .. Functions
 .. ---------------
 .. toctree::
-    :maxdepth: 3
+    :maxdepth: 5
 
    api_reference/functions
    api_reference/classes

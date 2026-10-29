@@ -3,7 +3,7 @@ Classes
 ---------
 
 .. toctree::
-    :maxdepth: 3
+    :maxdepth: 5
 
     classes/correlation_file
     classes/correlator

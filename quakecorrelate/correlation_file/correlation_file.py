@@ -95,7 +95,7 @@ class CorrelationFile:
 
         if "id_mapping" in self.root.attrs:
             self.id_mapping: Dict | None = self.root.attrs["id_mapping"]
-            """Mapping of event IDS to an index-based (starting at 1), sorted by origin times. Will be :code:`None` unless an index-based mapping was requested for an export to a dt.cc file."""
+            """Mapping of event IDs to an index-based (starting at 1), sorted by origin times. Will be :code:`None` unless an index-based mapping was requested for an export to a dt.cc file."""
         else:
             self.id_mapping: Dict | None = None
 
@@ -113,7 +113,7 @@ class CorrelationFile:
         relevant Picks for the streams that are correlated
 
         Arguments:
-            catalog: Obspy :code:`Catalog` object that is to be written to the metadata. Must include at least one :code:`Origin` and the :code:`Pick`s for the streams to be correlated.
+            catalog: Obspy :code:`Catalog` object that is to be written to the metadata. Must include at least one :code:`Origin` and the :code:`Pick` objects for the streams to be correlated.
         """
 
         keyed_catalog_dict = {}

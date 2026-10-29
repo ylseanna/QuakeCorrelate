@@ -3,6 +3,6 @@ Functions
 ---------
 
 .. toctree::
-    :maxdepth: 3
+    :maxdepth: 5
 
     functions/cross_correlate
