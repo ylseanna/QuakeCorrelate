@@ -7,6 +7,7 @@ from zarr import Array
 
 from ..util import ensure_unique_values
 
+
 class ChannelGroup(zarr.Group):
     """Wrapper class for :code:`zarr.Group` (`doc <https://zarr.readthedocs.io/en/stable/api/zarr/group/#zarr.Group>`_)  to add functionality for the :code:`.zarr`-file structure used by QuakeCorrelate.
 
@@ -114,9 +115,12 @@ class CorrelationFileMetadata:
                     "depth": origin.depth,
                 }
 
-                magnitude = (
-                    event.preferred_magnitude().mag or event.magnitudes[0].mag or None
-                )
+                if event.preferred_magnitude().mag:
+                    magnitude = event.preferred_magnitude().mag
+                elif event.magnitudes:
+                    magnitude = event.magnitudes[0].mag
+                else:
+                    magnitude = None
 
                 if magnitude:
                     event_dict["origin"]["mag"] = magnitude
