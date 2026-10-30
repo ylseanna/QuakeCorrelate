@@ -41,7 +41,7 @@ def to_length(array, length):
 def get_chunks_to_process(max_index: int, chunksize: int, lower_triangle: bool = True):
     chunk_boundaries = []
 
-    max_num_chunks = int(np.ceil(max_index / chunksize))
+    max_num_chunks = int(np.ceil((max_index + 1) / chunksize))
 
     chunk_index = 0
 
@@ -49,7 +49,7 @@ def get_chunks_to_process(max_index: int, chunksize: int, lower_triangle: bool =
         start_index = chunk_index * chunksize
         end_index = (chunk_index + 1) * chunksize - 1
 
-        if end_index < max_index:
+        if end_index < max_index + 1:
             chunk_boundaries.append((start_index, end_index))
         else:
             chunk_boundaries.append((start_index, max_index))
