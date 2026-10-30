@@ -135,7 +135,7 @@ class CorrelationFile:
 
         # write data
         if primary_event_slice == "all" and secondary_event_slice == "all":
-            corr_array[0:max_event_index, 0:max_event_index] = corr_matrix.astype(
+            corr_array[:, :] = corr_matrix.astype(
                 dtype("float32")
             )
         else:
@@ -199,7 +199,7 @@ class CorrelationFile:
 
         # write data
         if primary_event_slice == "all" and secondary_event_slice == "all":
-            lag_array[0:max_event_index, 0:max_event_index] = lag_matrix.astype(
+            lag_array[:, :] = lag_matrix.astype(
                 dtype("float32")
             )
         else:
