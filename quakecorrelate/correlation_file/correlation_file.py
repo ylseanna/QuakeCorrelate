@@ -2,7 +2,7 @@ import logging
 import time
 from multiprocessing import Pool, set_start_method
 from pathlib import Path
-from shutil import copyfileobj
+from shutil import copyfileobj, rmtree
 from typing import Dict, List, Literal, Tuple, TypedDict
 
 from numpy import ndarray, nan, dtype, empty, isnan
@@ -633,6 +633,8 @@ class CorrelationFile:
             for partial_file in sorted(tempdir.glob("*")):
                 with partial_file.open("rb") as fd:
                     copyfileobj(fd, wfd)
+                    
+        rmtree(tempdir)
 
         time_b = time.time()
 
