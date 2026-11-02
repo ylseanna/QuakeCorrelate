@@ -40,6 +40,8 @@ Table of Contents
    quickstart
    installation
    apireference
+   .. specifications
+
 
 -----------------
 Features

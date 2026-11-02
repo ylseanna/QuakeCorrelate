@@ -135,9 +135,7 @@ class CorrelationFile:
 
         # write data
         if primary_event_slice == "all" and secondary_event_slice == "all":
-            corr_array[:, :] = corr_matrix.astype(
-                dtype("float32")
-            )
+            corr_array[:, :] = corr_matrix.astype(dtype("float32"))
         else:
             corr_array[
                 primary_event_slice[0] : primary_event_slice[1] + 1,
@@ -199,9 +197,7 @@ class CorrelationFile:
 
         # write data
         if primary_event_slice == "all" and secondary_event_slice == "all":
-            lag_array[:, :] = lag_matrix.astype(
-                dtype("float32")
-            )
+            lag_array[:, :] = lag_matrix.astype(dtype("float32"))
         else:
             lag_array[
                 primary_event_slice[0] : primary_event_slice[1] + 1,
@@ -633,7 +629,7 @@ class CorrelationFile:
             for partial_file in sorted(tempdir.glob("*")):
                 with partial_file.open("rb") as fd:
                     copyfileobj(fd, wfd)
-                    
+
         rmtree(tempdir)
 
         time_b = time.time()
