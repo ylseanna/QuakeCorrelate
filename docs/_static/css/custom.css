@@ -1,6 +1,9 @@
 html[data-theme] {
     /* light-dark(<light theme value>, <dark theme value>) */
-    --pst-color-primary: light-dark(#007da0ff, rgb(33, 163, 199));
+    --pst-color-primary: light-dark(#007da0ff, #21a3c7);
     --pst-color-secondary: light-dark(#fd4e38ff, #fd4e38ff);
     --pst-color-accent: light-dark(#fd4e38ff, #fd4e38ff);
+    --pst-color-link: light-dark(#007da0ff, #4cafca);
+    --pst-color-link-higher-contrast:  light-dark(#007da0, #4cafca);
+    --pst-color-inline-code:  light-dark(#fd4e38ff, #fd4e38ff);
 }

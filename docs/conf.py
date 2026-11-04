@@ -123,7 +123,8 @@ html_css_files = [
 html_theme_options = {
     "logo": {
         "text": "QuakeCorrelate",
-    }
+    },
+    "codetextcolor": "red"
     # "path_to_docs": "docs",
     # "repository_url": "https://github.com/ylseanna/QuakeCorrelate",
     # "repository_branch": "master",
