@@ -1,5 +1,5 @@
 ===============
- Installation
+Installation
 ===============
 
 Here it is explained in detail how to install QuakeCorrelate for different platforms, which have been tested and developed for.

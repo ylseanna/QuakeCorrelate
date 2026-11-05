@@ -548,11 +548,8 @@ class Correlator:
                     xcorcoeff = self.jl.Squiggles.memcopy(xcorcoeff_GPU)
                     lags = self.jl.Squiggles.memcopy(lags_GPU)
 
-                
                 # cast to numpy array (back to python land yay)
-                corr_matrix = np.array(
-                    xcorcoeff, dtype=np.float32
-                ) 
+                corr_matrix = np.array(xcorcoeff, dtype=np.float32)
                 lag_matrix = -np.array(
                     lags, dtype=np.float32
                 )  # NOTE: Squiggles varies A over B, while QuakeCorrelate assumes B is run over A, so lags have to be -1
@@ -580,7 +577,6 @@ class Correlator:
                 sparse_corr_matrix[:] = np.nan
                 sparse_lag_matrix[:] = np.nan
 
-                
                 # NOTE: also check if value is > shift_len, NaN if so
                 if lower_triangle:
                     for i, event_id_i in enumerate(event_indices):
