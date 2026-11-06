@@ -83,8 +83,8 @@ def _write_single_event_pair_to_dtcc(
                 )
 
                 catalog_differential_time = (
-                    event_b_pick_time - UTCDateTime(event_b["origin"]["time"])
-                ) - (event_a_pick_time - UTCDateTime(event_a["origin"]["time"]))
+                    event_a_pick_time - UTCDateTime(event_a["origin"]["time"])
+                ) - (event_b_pick_time - UTCDateTime(event_b["origin"]["time"]))
 
                 # weight value
                 if weight_value_type == "corr_squared":
@@ -152,8 +152,8 @@ def _write_single_event_pair_to_dtcc(
                     )
 
                     catalog_differential_time = (
-                        event_b_pick_time - UTCDateTime(event_b["origin"]["time"])
-                    ) - (event_a_pick_time - UTCDateTime(event_a["origin"]["time"]))
+                        event_a_pick_time - UTCDateTime(event_a["origin"]["time"])
+                    ) - (event_b_pick_time - UTCDateTime(event_b["origin"]["time"]))
 
                     # weight value
                     if weight_value_type == "corr_squared":
