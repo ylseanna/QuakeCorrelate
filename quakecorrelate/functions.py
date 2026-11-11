@@ -1,10 +1,11 @@
-from obspy import Stream, Catalog
-from typing import Literal, Dict, List
 from pathlib import Path
-import numpy as np
+from typing import Dict, List, Literal, Tuple
 
-from .correlator import Correlator
+import numpy as np
+from obspy import Catalog, Stream
+
 from .correlation_file import CorrelationFile
+from .correlator import Correlator
 
 
 def cross_correlate_seismic_events(
@@ -25,6 +26,8 @@ def cross_correlate_seismic_events(
     export_to_dtcc: bool | str | Path = False,
     event_id_mapping: Dict[str, str] | Literal["index"] | None = None,
     min_corr_value: float = 0,
+    horizontal_channels_postfix: Tuple[str] = ("E", "N", "1", "2"),
+    vertical_channels_postfix: Tuple[str] = ("Z", "3"),
 ) -> CorrelationFile:
     """Function to calculate cross correlations for seismic events, on a per station, per component basis.
 
@@ -87,6 +90,8 @@ def cross_correlate_seismic_events(
         overwrite_corr_file=overwrite_corr_file,
         shardsize=write_block_size,
         chunksize=read_block_size,
+        horizontal_channels_postfix=horizontal_channels_postfix,
+        vertical_channels_postfix=vertical_channels_postfix,
     )
 
     correlator.cross_correlate(

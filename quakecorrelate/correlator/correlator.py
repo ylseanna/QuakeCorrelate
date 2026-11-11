@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 
 from ..util.helper_functions import get_chunks_to_process, next_power_of_2, to_length
 from ..correlation_file import CorrelationFile
+from .functions import extract_traces
 
 mpl_use("Agg")
 from matplotlib.pyplot import close, figure
@@ -39,6 +40,8 @@ class Correlator:
         overwrite_corr_file: bool = False,
         shardsize: int = 1000,
         chunksize: int = 100,
+        horizontal_channels_postfix: Tuple[str] = ("E", "N", "1", "2"),
+        vertical_channels_postfix: Tuple[str] = ("Z", "3"),
     ):
         # ensuring input type
         corr_file = Path(corr_file)
@@ -60,6 +63,8 @@ class Correlator:
             overwrite_file=overwrite_corr_file,
             shardsize=shardsize,
             chunksize=chunksize,
+            horizontal_channels_postfix=horizontal_channels_postfix,
+            vertical_channels_postfix=vertical_channels_postfix,
         )
 
     def cross_correlate(
@@ -173,9 +178,9 @@ class Correlator:
                 stream_dict=stream_dict,
                 primary_event_slice=primary_event_slice,
                 secondary_event_slice=secondary_event_slice,
-                length=length,
-                padding=padding,
+                # length=length,
                 shift_len=shift_len,
+                padding=padding,
                 interpolate=interpolate,
                 threads_per_block=threads_per_block,
                 plot=plot_corr_matrix,
@@ -188,9 +193,10 @@ class Correlator:
         stream_dict: Dict[str, Stream],
         primary_event_slice: Tuple[int, int],
         secondary_event_slice: Tuple[int, int],
-        length: float | None = None,
-        padding: float = 0.0,
+        prepick: float = 0.5,
+        postpick: float = 1.5,
         shift_len: float = 1.0,
+        padding: float | None = None,
         interpolate: int | None = None,
         threads_per_block: int = 256,
         plot: bool = False,
@@ -226,290 +232,93 @@ class Correlator:
                     f"--- Correlating for station {station}, channel {channel} ---"
                 )
 
+                logger.info("        Extracting traces...")
+
+                # get traces and event_indices and associated picks
+                primary_traces_sliced = []
+                primary_event_indices_sliced = []
+
+                # determine phase type to use for extracting picks
+                if channel.endswith(self.correlation_file.vertical_channels_postfix):
+                    logger.debug("Vertical channel detected!")
+                    phase_hint = "P"
+                elif channel.endswith(
+                    self.correlation_file.horizontal_channels_postfix
+                ):
+                    logger.debug("Horizontal channel detected!")
+                    phase_hint = "S"
+                else:
+                    logger.warning(
+                        "Channel type (phase hint) could not be detected, defaulting to P phase!"
+                    )
+                    phase_hint = "P"
+
+                logger.info(f"             phase hint: {phase_hint:1s} (pick used)")
+
                 if lower_triangle:
-                    ### get all traces from which we need to take the data (sort by channel, station and all event indices in slice)
-                    primary_traces_sliced = [
-                        (
-                            [
-                                trace
-                                for trace in stream
-                                if trace.stats.channel == channel
-                                and trace.stats.station == station
-                            ][0]
-                            if [
-                                trace
-                                for trace in stream
-                                if trace.stats.channel == channel
-                                and trace.stats.station == station
-                            ]
-                            else []
-                        )
-                        for stream in [
-                            stream_dict[event_id]
-                            for event_index, event_id in events.items()
-                            if int(event_index) in event_indices
-                        ]
-                    ]
-
-                    logger.info(
-                        f"        number of traces: {len(primary_traces_sliced):<11n}"
-                    )
-
-                    # empty secondary so the code can be common for both A = A and A = B
-                    secondary_traces_sliced = []
-                elif not lower_triangle:
-                    # now the event_indices variable is a tuple with two lists
-                    primary_event_indices, secondary_event_indices = event_indices
-
-                    ### get all traces from which we need to take the data (sort by channel, station and all event indices in slice)
-                    primary_traces_sliced = [
-                        (
-                            [
-                                trace
-                                for trace in stream
-                                if trace.stats.channel == channel
-                                and trace.stats.station == station
-                            ][0]
-                            if [
-                                trace
-                                for trace in stream
-                                if trace.stats.channel == channel
-                                and trace.stats.station == station
-                            ]
-                            else []
-                        )
-                        for stream in [
-                            stream_dict[event_id]
-                            for event_index, event_id in events.items()
-                            if int(event_index) in primary_event_indices
-                        ]
-                    ]
-
-                    # empty secondary so the code can be common for both A = A and A = B
-                    secondary_traces_sliced = [
-                        (
-                            [
-                                trace
-                                for trace in stream
-                                if trace.stats.channel == channel
-                                and trace.stats.station == station
-                            ][0]
-                            if [
-                                trace
-                                for trace in stream
-                                if trace.stats.channel == channel
-                                and trace.stats.station == station
-                            ]
-                            else []
-                        )
-                        for stream in [
-                            stream_dict[event_id]
-                            for event_index, event_id in events.items()
-                            if int(event_index) in secondary_event_indices
-                        ]
-                    ]
-
-                    logger.info(
-                        f"        number of traces: {len(primary_traces_sliced):<11n} + {len(secondary_traces_sliced):<11n} (A, B)"
-                    )
-
-                    if (
-                        len(primary_traces_sliced) == 0
-                        or len(secondary_traces_sliced) == 0
-                    ):
+                    # primary
+                    primary_event_indices = event_indices
+                    
+                    if len(primary_event_indices) == 0:
                         logger.warning(
-                            "One side of the computation array has no traces - SKIPPING..."
+                            "No events for this slice of the matric, skipping!"
                         )
                         continue
 
-                if any(
-                    [
-                        False if len(trace) > 0 else True
-                        for trace in chain(
-                            primary_traces_sliced, secondary_traces_sliced
-                        )
+                    primary_event_ids = [
+                        self.correlation_file.metadata.events[str(event_index)]
+                        for event_index in primary_event_indices
                     ]
-                ):
-                    logger.warning("Zero length traces found - SKIPPING...")
-                    continue
 
-                logger.info("        Collecting trace metadata...")
-
-                ### calculate relevant values for processing based on input arguments
-
-                # get required metadata
-                sampling_rates = [
-                    trace.stats.sampling_rate
-                    for trace in chain(primary_traces_sliced, secondary_traces_sliced)
-                ]
-                nptss = [
-                    trace.stats.npts
-                    for trace in chain(primary_traces_sliced, secondary_traces_sliced)
-                ]
-                trace_lengths = [
-                    trace.stats.npts * trace.stats.delta
-                    for trace in chain(primary_traces_sliced, secondary_traces_sliced)
-                ]
-
-                # trace lengths
-                unique_trace_lengths, unique_trace_lengths_counts = np.unique(
-                    trace_lengths, return_counts=True
-                )
-
-                if len(unique_trace_lengths) > 1:
-                    logger.warning(
-                        "Inhomogeneous trace lengths, continuing with most frequent, but be aware..."
+                    A, primary_trace_dict = extract_traces(
+                        stream_dict,
+                        primary_event_ids,
+                        self.correlation_file.metadata.catalog,
+                        station,
+                        channel,
+                        phase_hint,
+                        prepick,
+                        postpick,
+                        padding=(
+                            shift_len if not padding else padding
+                        ),  # default to shift_len else set to preset padding
                     )
-                    trace_length = unique_trace_lengths[
-                        np.argmax(unique_trace_lengths_counts)
-                    ]
-                else:
-                    trace_length = unique_trace_lengths[0]
 
-                logger.info(f"            trace length: {trace_length:<11.1f} s")
+                    # secondary kept for consistency
+                    secondary_event_indices = []
+                    B = []
+                    secondary_trace_dict = {}
 
-                # sampling rate
-                unique_sampling_rates = np.unique(sampling_rates)
+                    logger.info(f"             array shape: {A.shape}")
+                    
+                    # retrieve samping rate for shift_len
+                    sampling_rate = primary_trace_dict[
+                        primary_event_ids[0]
+                    ].stats.sampling_rate
 
-                if len(unique_sampling_rates) > 1:
-                    logger.warning("Inhomogeneous sampling rates, skipping...")
-                    continue
+                    ### do correlation and time it
 
-                sampling_rate = unique_sampling_rates[0]
-
-                logger.info(f"           sampling rate: {sampling_rate:<11.1f} Hz")
-
-                # total length of all samples (can accomodate a few samples offset)
-                unique_nptss, unique_nptss_counts = np.unique(nptss, return_counts=True)
-
-                if len(unique_nptss) > 1:
-                    npts = unique_nptss[np.argmax(unique_nptss_counts)]
-                else:
-                    npts = unique_nptss[0]
-
-                logger.info(f"       number of samples: {npts:<11.1f}")
-
-                # slicing
-
-                if length or padding:
-                    logger.info("        Slicing data...")
-
-                    if length:
-                        logger.info(f"        length to slice: {trace_length:<11.1f} s")
-
-                    if padding:
-                        logger.info(f"                padding: {trace_length:<11.1f} s")
-
-                    # num samples and start and end of slicing
-
-                    # if padding, start not at zero
-                    start = int(padding * sampling_rate)
-
-                    # if fixed template length is set, calculate length
-                    if length:
-                        end = int(start + length * sampling_rate)
-                    else:
-                        end = int(
-                            npts - padding * sampling_rate
-                        )  # go to end, unless padding
-
-                    num_samples = end - start
+                    shift_len_samples = next_power_of_2(
+                        int(ceil(shift_len * sampling_rate))
+                    )
 
                     logger.info(
-                        f"       number of samples: {num_samples:<11n} (sliced from {npts}, start: {start}, end: {end})"
+                        f"            shift length: {shift_len_samples:<11n} samples (ceiled to nearest power of 2, {shift_len:.1f} s)"
                     )
-                else:
-                    num_samples = npts
 
-                ### get data
+                    ### transposing and converting data
 
-                logger.info("        Preparing data...")
-
-                # data input matrices
-                A = []
-                B = []
-
-                # extract data from trace
-                for trace in primary_traces_sliced:
-                    if padding or length:
-                        trace_data = trace.data[start:end]
-                    else:
-                        trace_data = trace.data
-
-                    if (
-                        len(trace_data) != num_samples
-                    ):  # sometimes a single trace is of by a few samples (or improper length is set)
-                        logger.warning(
-                            "One trace did not have the right number of samples (%s samples) for the requested length (%s samples), padding, but be aware",
-                            len(trace_data),
-                            num_samples,
-                        )
-
-                    A.append(trace_data)
-
-                if not lower_triangle:
-                    for trace in secondary_traces_sliced:
-                        if padding or length:
-                            trace_data = trace.data[start:end]
-                        else:
-                            trace_data = trace.data
-
-                        if (
-                            len(trace_data) != num_samples
-                        ):  # sometimes a single trace is of by a few samples (or improper length is set)
-                            logger.warning(
-                                "One trace did not have the right number of samples (%s samples) for the requested length (%s samples), padding, but be aware",
-                                len(trace_data),
-                                num_samples,
-                            )
-
-                        B.append(trace_data)
-
-                ### pad signal
-
-                padded_npts = next_power_of_2(int(num_samples))
-
-                A = np.array([to_length(trace, padded_npts) for trace in A])
-                B = np.array([to_length(trace, padded_npts) for trace in B])
-
-                logger.info(
-                    f"           signal length: {padded_npts:<11n} samples (zero-padded to nearest power of 2, {padded_npts / sampling_rate:.1f} s)"
-                )
-
-                ### do correlation and time it
-
-                shift_len_samples = next_power_of_2(
-                    int(ceil(shift_len * sampling_rate))
-                )
-
-                logger.info(
-                    f"            shift length: {shift_len_samples:<11n} samples (ceiled to nearest power of 2, {shift_len:.1f} s)"
-                )
-
-                if lower_triangle:
-                    logger.info(f"             array shape: {A.shape}")
-                if not lower_triangle:
-                    logger.info(f"             array shape: {A.shape} (A)")
-                    logger.info(f"             array shape: {B.shape} (B)")
-
-                ### transposing and converting data
-
-                A = self.jl.pyconvert(
-                    self.jl.Matrix, A.T
-                )  # ensure column indexing (for julia)
-
-                if not lower_triangle:
-                    B = self.jl.pyconvert(
-                        self.jl.Matrix, B.T
+                    A = self.jl.pyconvert(
+                        self.jl.Matrix, A.T
                     )  # ensure column indexing (for julia)
 
-                ### actual cross correlation
+                    ### actual cross correlation
 
-                logger.info("        Correlating on GPU...")
+                    logger.info("        Correlating on GPU...")
 
-                pre_corr_time = time.time()
-
-                if lower_triangle:  # NOTE: reduced: lower triangle representation
+                    pre_corr_time = time.time()
+                    
+                    # NOTE: reduced: lower triangle representation
                     # run correlation
                     corrgrams_gpu_reduced = self.jl.Squiggles.norm_correlogram(
                         A, shift_len_samples, threads_per_block
@@ -531,9 +340,96 @@ class Correlator:
                         xcorcoeff_reduced, fillwithnans=False
                     )
                     lags = self.jl.Squiggles.reconstruct_antisymmetric(lags_reduced)
-                elif (
-                    not lower_triangle
-                ):  # NOTE: no reduction as it is a rectangular computation matrix
+                if not lower_triangle:
+                    primary_event_indices, secondary_event_indices = event_indices
+                    
+                    if len(primary_event_indices) == 0:
+                        logger.warning(
+                            "No primary events for this slice of the matric, skipping!"
+                        )
+                        continue
+                    
+                    if len(secondary_event_indices) == 0:
+                        logger.warning(
+                            "No secondary events for this slice of the matric, skipping!"
+                        )
+                        continue
+
+                    # primary
+                    primary_event_ids = [
+                        self.correlation_file.metadata.events[str(event_index)]
+                        for event_index in primary_event_indices
+                    ]
+
+                    A, primary_trace_dict = extract_traces(
+                        stream_dict,
+                        primary_event_ids,
+                        self.correlation_file.metadata.catalog,
+                        station,
+                        channel,
+                        phase_hint,
+                        prepick,
+                        postpick,
+                        padding=(
+                            shift_len if not padding else padding
+                        ),  # default to shift_len else set to preset padding
+                    )
+
+                    # secondary
+                    secondary_event_ids = [
+                        self.correlation_file.metadata.events[str(event_index)]
+                        for event_index in secondary_event_indices
+                    ]
+
+                    B, secondary_trace_dict = extract_traces(
+                        stream_dict,
+                        secondary_event_ids,
+                        self.correlation_file.metadata.catalog,
+                        station,
+                        channel,
+                        phase_hint,
+                        prepick,
+                        postpick,
+                        padding=(
+                            shift_len if not padding else padding
+                        ),  # default to shift_len else set to preset padding
+                    )
+
+                    logger.info(f"             array shape: {A.shape} (A)")
+                    logger.info(f"             array shape: {B.shape} (B)")
+
+                    # retrieve samping rate for shift_len
+                    sampling_rate = primary_trace_dict[
+                        primary_event_ids[0]
+                    ].stats.sampling_rate
+
+                    ### do correlation and time it
+
+                    shift_len_samples = next_power_of_2(
+                        int(ceil(shift_len * sampling_rate))
+                    )
+
+                    logger.info(
+                        f"            shift length: {shift_len_samples:<11n} samples (ceiled to nearest power of 2, {shift_len:.1f} s)"
+                    )
+
+                    ### transposing and converting data
+
+                    A = self.jl.pyconvert(
+                        self.jl.Matrix, A.T
+                    )  # ensure column indexing (for julia)
+
+                    B = self.jl.pyconvert(
+                        self.jl.Matrix, B.T
+                    )  # ensure column indexing (for julia)
+
+                    ### actual cross correlation
+
+                    logger.info("        Correlating on GPU...")
+
+                    pre_corr_time = time.time()
+
+                     # NOTE: no reduction as it is a rectangular computation matrix
                     # run correlation
                     corrgrams_gpu = self.jl.Squiggles.norm_correlogram(
                         A, B, shift_len_samples, threads_per_block
@@ -548,6 +444,9 @@ class Correlator:
                     xcorcoeff = self.jl.Squiggles.memcopy(xcorcoeff_GPU)
                     lags = self.jl.Squiggles.memcopy(lags_GPU)
 
+
+                ### process products
+                
                 # cast to numpy array (back to python land yay)
                 corr_matrix = np.array(xcorcoeff, dtype=np.float32)
                 lag_matrix = -np.array(
