@@ -73,12 +73,13 @@ class Correlator:
         catalog: Catalog | None = None,
         stations: List[str] | Literal["all"] | None = None,
         channels: List[str] | Literal["all"] | None = None,
+        prepick: float = 0.5,
+        postpick: float = 1.5,
         length: float | None = None,
         padding: float = 0.0,
         shift_len: float = 1.0,
         interpolate: int | None = None,
         threads_per_block: int = 256,
-        lower_triangle: bool = True,
         plot_corr_matrix: bool = False,
         plot_dir: str | Path = "correlation_plots",
         plot_filename: str | Path = "correlation.png",
@@ -90,12 +91,12 @@ class Correlator:
             catalog: Obspy catalog whose events are to be processed. Will be written to the correlation file metadata. Setting to :code:`None` will cause the metadata to remain untouched (useful if previously set, but will cause errors otherwise).
             stations: List of station IDs to be processed, or "all" to dynamically include all station IDs present in the streams. Will be written to the correlation file metadata. Setting to :code:`None` will cause the metadata to remain untouched (useful if previously set, but will cause errors otherwise).
             channels: List of channels IDs to be processed, or "all" to dynamically include all channel IDs present in the streams. Will be written to the correlation file metadata. Setting to :code:`None` will cause the metadata to remain untouched (useful if previously set, but will cause errors otherwise).
-            length: **TO BE CHANGED**
-            padding: **TO BE CHANGED**
+            prepick: Number of seconds prior to the pick time that should be extracted from the original Trace data.
+            postpick: Number of seconds after the pick time that should be extracted from the original Trace data. Overwritten by length if length is set.
+            length: Number of seconds after prepick to cut out (i.e. total length of the extracted trace), overrides postpick if not None.
             shift_len: **TO BE CHANGED**
-            interpolate: **TO BE CHANGED**
-            threads_per_block: **TO BE CHANGED**
-            lower_triangle: **TO BE CHANGED**
+            interpolate: **Not implemented**
+            threads_per_block: **Temporary parameter passed to Squiggles.jl**
             plot_corr_matrix: Whether to plot correlation matrices while the calculations are running.
             plot_dir:  Output directory for the plots.
             plot_filename: Filename for the correlation matrix plots, will append station and channel information.
@@ -164,7 +165,7 @@ class Correlator:
         max_event_index = all_event_indices[-1]
 
         chunks_to_process = get_chunks_to_process(
-            max_event_index, self.shardsize, lower_triangle
+            max_event_index, self.shardsize
         )
 
         logger.info(f"    # chunks to process: {len(chunks_to_process)}")
@@ -179,6 +180,9 @@ class Correlator:
                 primary_event_slice=primary_event_slice,
                 secondary_event_slice=secondary_event_slice,
                 # length=length,
+                prepick=prepick,
+                postpick=postpick,
+                length=length,
                 shift_len=shift_len,
                 padding=padding,
                 interpolate=interpolate,
@@ -195,6 +199,7 @@ class Correlator:
         secondary_event_slice: Tuple[int, int],
         prepick: float = 0.5,
         postpick: float = 1.5,
+        length: float | None = None,
         shift_len: float = 1.0,
         padding: float | None = None,
         interpolate: int | None = None,
@@ -279,6 +284,7 @@ class Correlator:
                         phase_hint,
                         prepick,
                         postpick,
+                        length,
                         padding=(
                             shift_len if not padding else padding
                         ),  # default to shift_len else set to preset padding

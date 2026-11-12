@@ -3,8 +3,8 @@
 
 <svg
    width="210.3mm"
-   height="55.068748mm"
-   viewBox="0 0 210.3 55.068748"
+   height="58.971348mm"
+   viewBox="0 0 210.3 58.971347"
    version="1.1"
    id="svg1"
    inkscape:version="1.4.4 (1:1.4.4+202605061436+dcaf3e7d9e)"
@@ -25,31 +25,31 @@
      inkscape:document-units="mm"
      showguides="true"
      inkscape:zoom="1"
-     inkscape:cx="416"
-     inkscape:cy="152.5"
+     inkscape:cx="374.5"
+     inkscape:cy="106.5"
      inkscape:window-width="1920"
-     inkscape:window-height="1011"
-     inkscape:window-x="0"
-     inkscape:window-y="32"
+     inkscape:window-height="1043"
+     inkscape:window-x="1920"
+     inkscape:window-y="0"
      inkscape:window-maximized="1"
      inkscape:current-layer="layer1">
     <sodipodi:guide
-       position="87.432646,255.80742"
+       position="82.50955,30.773478"
        orientation="1,0"
        id="guide16"
        inkscape:locked="false" />
     <sodipodi:guide
-       position="60.247712,254.42137"
+       position="60.247712,250.51876"
        orientation="1,0"
        id="guide18"
        inkscape:locked="false" />
     <sodipodi:guide
-       position="199.78688,254.42137"
+       position="199.78688,250.51876"
        orientation="1,0"
        id="guide20"
        inkscape:locked="false" />
     <sodipodi:guide
-       position="55.088556,251.7748"
+       position="55.088556,247.87219"
        orientation="1,0"
        id="guide23"
        inkscape:locked="false" />
@@ -101,7 +101,7 @@
      inkscape:label="Layer 1"
      inkscape:groupmode="layer"
      id="layer1"
-     transform="translate(0.15000001,0.15000001)">
+     transform="translate(0.15000001,4.0526052)">
     <rect
        style="fill:#ffffff;fill-opacity:1;stroke:#c2c2c2;stroke-width:0.3;stroke-linecap:round;stroke-linejoin:miter;stroke-opacity:1;paint-order:markers fill stroke"
        id="rect24"
@@ -132,23 +132,23 @@
        y="18.695234" />
     <path
        style="fill:none;stroke:#000000;stroke-width:0.3;stroke-linecap:round;stroke-linejoin:miter;stroke-opacity:1;paint-order:markers fill stroke"
-       d="M 103.55608,10.531977 V 25.685864"
+       d="m 103.55608,5.2335137 v 3.3973457 m 0,1.7363286 v 15.266743"
        id="path1"
-       sodipodi:nodetypes="cc" />
+       sodipodi:nodetypes="cccc" />
     <text
        xml:space="preserve"
        style="font-size:5.64444px;line-height:0.6;font-family:'Bitcount Grid Double';-inkscape-font-specification:'Bitcount Grid Double, Normal';text-align:center;letter-spacing:-0.0763346px;word-spacing:0px;writing-mode:lr-tb;direction:ltr;text-anchor:middle;fill:none;stroke:#000000;stroke-width:0.300001;stroke-linecap:round;stroke-linejoin:miter;stroke-opacity:1;paint-order:markers fill stroke"
        x="103.59423"
-       y="8.0667477"
+       y="2.9787662"
        id="text1"><tspan
          sodipodi:role="line"
          id="tspan1"
          style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5.64444px;font-family:'Noto Sans';-inkscape-font-specification:'Noto Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.300001"
          x="103.55606"
-         y="8.0667477">Pick (P, S)</tspan></text>
+         y="2.9787662">Pick (P, S)</tspan></text>
     <path
        style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.3;stroke-linecap:round;stroke-linejoin:miter;stroke-opacity:1;marker-end:url(#ArrowWideRounded);paint-order:markers fill stroke"
-       d="M 103.59581,16.135569 H 82.579464"
+       d="M 103.59632,16.135569 H 82.651705"
        id="path2"
        sodipodi:nodetypes="cc" />
     <text
@@ -310,5 +310,21 @@
          style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:4.93889px;font-family:'Noto Sans';-inkscape-font-specification:'Noto Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.300001"
          x="50.015457"
          y="47.788467">secondary trace</tspan></text>
+    <path
+       style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.3;stroke-linecap:round;stroke-linejoin:miter;stroke-opacity:1;marker-end:url(#ArrowWideRounded);paint-order:markers fill stroke"
+       d="M 82.558785,9.3886943 H 167.14877"
+       id="path7"
+       sodipodi:nodetypes="cc" />
+    <text
+       xml:space="preserve"
+       style="font-size:3.52778px;line-height:0.6;font-family:'Bitcount Grid Double';-inkscape-font-specification:'Bitcount Grid Double, Normal';text-align:center;letter-spacing:-0.0763346px;word-spacing:0px;writing-mode:lr-tb;direction:ltr;text-anchor:middle;fill:none;stroke:#000000;stroke-width:0.300001;stroke-linecap:round;stroke-linejoin:miter;stroke-opacity:1;paint-order:markers fill stroke"
+       x="126.7778"
+       y="7.4911985"
+       id="text7"><tspan
+         sodipodi:role="line"
+         id="tspan7"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:3.52778px;font-family:'Noto Mono';-inkscape-font-specification:'Noto Mono, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.300001"
+         x="126.73963"
+         y="7.4911985">length</tspan></text>
   </g>
 </svg>

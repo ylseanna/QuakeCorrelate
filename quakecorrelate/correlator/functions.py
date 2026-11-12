@@ -19,6 +19,7 @@ def extract_traces(
     prepick: float,
     postpick: float,
     padding: float,
+    length: float | None = None,
 ) -> Tuple[ndarray, List[Trace]]:
     """Function to scan through a stream dictionary and find and cut the traces for a given number of events,
     using the associated station ID, channel ID, phase hint (P or S, i.e. horizontal or vertical trace) and the given
@@ -32,8 +33,9 @@ def extract_traces(
         channel: Channel ID to be extracted for.
         phase_hint: Phase hint (P or S) to be extracted for.
         prepick: Number of seconds prior to the pick time that should be extracted from the original Trace data.
-        postpick: Number of seconds after the pick time that should be extracted from the original Trace data.
+        postpick: Number of seconds after the pick time that should be extracted from the original Trace data. Overwritten by length if length is set.
         padding: Amount of padding in seconds to be added on either side of the extraction window, as used during the correlation step.
+        length: Number of seconds after prepick to cut out (i.e. total length of the extracted trace), overrides postpick if not None.
 
     Returns:
         A square Numpy array where the first axis is the trace number (by ordered Event ID) and the second axis the data itself (in samples), also returns an dictionary of the original trace object indexed by Event ID.
@@ -111,9 +113,14 @@ def extract_traces(
     for event_id, tr in trace_dict.items():
         pick_time = UTCDateTime(pick_dict[event_id]["time"])
 
-        trace_dict[event_id] = tr.slice(
-            pick_time - (prepick + padding), pick_time + (postpick + padding)
-        )
+        if not length:
+            trace_dict[event_id] = tr.slice(
+                pick_time - (prepick + padding), pick_time + (postpick + padding)
+            )
+        elif length:
+            trace_dict[event_id] = tr.slice(
+                pick_time - (prepick + padding), pick_time + (length - prepick)
+            )
 
     logger.info("        Checking sliced trace consistency...")
 
