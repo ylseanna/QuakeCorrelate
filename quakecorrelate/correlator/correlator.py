@@ -284,10 +284,10 @@ class Correlator:
                         phase_hint,
                         prepick,
                         postpick,
-                        length,
                         padding=(
                             shift_len if not padding else padding
                         ),  # default to shift_len else set to preset padding
+                        length=length,
                     )
 
                     # secondary kept for consistency
