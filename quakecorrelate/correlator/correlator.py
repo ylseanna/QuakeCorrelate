@@ -86,7 +86,7 @@ class Correlator:
         """_summary_
 
         Args:
-            stream_dict: _description_
+            stream_dict: Dictionary keyed by Event ID with the Obspy Stream object that contain the data for each station and phase to be correlated.
             catalog: Obspy catalog whose events are to be processed. Will be written to the correlation file metadata. Setting to :code:`None` will cause the metadata to remain untouched (useful if previously set, but will cause errors otherwise).
             stations: List of station IDs to be processed, or "all" to dynamically include all station IDs present in the streams. Will be written to the correlation file metadata. Setting to :code:`None` will cause the metadata to remain untouched (useful if previously set, but will cause errors otherwise).
             channels: List of channels IDs to be processed, or "all" to dynamically include all channel IDs present in the streams. Will be written to the correlation file metadata. Setting to :code:`None` will cause the metadata to remain untouched (useful if previously set, but will cause errors otherwise).
@@ -258,7 +258,7 @@ class Correlator:
                 if lower_triangle:
                     # primary
                     primary_event_indices = event_indices
-                    
+
                     if len(primary_event_indices) == 0:
                         logger.warning(
                             "No events for this slice of the matric, skipping!"
@@ -290,7 +290,7 @@ class Correlator:
                     secondary_trace_dict = {}
 
                     logger.info(f"             array shape: {A.shape}")
-                    
+
                     # retrieve samping rate for shift_len
                     sampling_rate = primary_trace_dict[
                         primary_event_ids[0]
@@ -317,7 +317,7 @@ class Correlator:
                     logger.info("        Correlating on GPU...")
 
                     pre_corr_time = time.time()
-                    
+
                     # NOTE: reduced: lower triangle representation
                     # run correlation
                     corrgrams_gpu_reduced = self.jl.Squiggles.norm_correlogram(
@@ -342,13 +342,13 @@ class Correlator:
                     lags = self.jl.Squiggles.reconstruct_antisymmetric(lags_reduced)
                 if not lower_triangle:
                     primary_event_indices, secondary_event_indices = event_indices
-                    
+
                     if len(primary_event_indices) == 0:
                         logger.warning(
                             "No primary events for this slice of the matric, skipping!"
                         )
                         continue
-                    
+
                     if len(secondary_event_indices) == 0:
                         logger.warning(
                             "No secondary events for this slice of the matric, skipping!"
@@ -429,7 +429,7 @@ class Correlator:
 
                     pre_corr_time = time.time()
 
-                     # NOTE: no reduction as it is a rectangular computation matrix
+                    # NOTE: no reduction as it is a rectangular computation matrix
                     # run correlation
                     corrgrams_gpu = self.jl.Squiggles.norm_correlogram(
                         A, B, shift_len_samples, threads_per_block
@@ -444,9 +444,8 @@ class Correlator:
                     xcorcoeff = self.jl.Squiggles.memcopy(xcorcoeff_GPU)
                     lags = self.jl.Squiggles.memcopy(lags_GPU)
 
-
                 ### process products
-                
+
                 # cast to numpy array (back to python land yay)
                 corr_matrix = np.array(xcorcoeff, dtype=np.float32)
                 lag_matrix = -np.array(

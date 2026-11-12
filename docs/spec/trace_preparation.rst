@@ -2,6 +2,8 @@
 Trace preparation
 --------------------
 
+*See the implementation in* :any:`quakecorrelate.correlator.functions.extract_traces` *in the API reference.*
+
 This page details how traces are prepared in QuakeCorrelate.
 
 .. figure:: /_static/figures/signal_cutout.svg

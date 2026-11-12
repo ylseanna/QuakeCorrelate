@@ -25,18 +25,18 @@ def extract_traces(
     cutting parameters around the pick: prepick, postpick and padding.
 
     Args:
-        stream_dict: _description_
-        event_ids: _description_
-        catalog: _description_
-        station: _description_
-        channel: _description_
-        phase_hint: _description_
-        prepick: _description_
-        postpick: _description_
-        padding: _description_
+        stream_dict: Dictionary keyed by event ID with the Obspy Stream object that contain the data for each station and phase to be correlated.
+        event_ids: List of all event IDs to be extracted.
+        catalog: CorrelationFile.metadata.catalog object that contains the relevant event for the traces to be extracted, namely the picks.
+        station: Station ID to be extracted for.
+        channel: Channel ID to be extracted for.
+        phase_hint: Phase hint (P or S) to be extracted for.
+        prepick: Number of seconds prior to the pick time that should be extracted from the original Trace data.
+        postpick: Number of seconds after the pick time that should be extracted from the original Trace data.
+        padding: Amount of padding in seconds to be added on either side of the extraction window, as used during the correlation step.
 
     Returns:
-        A square Numpy array where the first axis is the trace number (by ordered Event ID) and the second axis the data itself (in samples), also return
+        A square Numpy array where the first axis is the trace number (by ordered Event ID) and the second axis the data itself (in samples), also returns an dictionary of the original trace object indexed by Event ID.
     """
     logger.info(f"        Accessing traces and picks ({phase_hint})...")
 

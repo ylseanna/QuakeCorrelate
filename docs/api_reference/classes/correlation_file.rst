@@ -1,5 +1,5 @@
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-quakecorrelate.CorrelationFile
+CorrelationFile
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. autoclass:: quakecorrelate.CorrelationFile
