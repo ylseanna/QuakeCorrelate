@@ -362,6 +362,7 @@ class Correlator:
                         continue
 
                     # primary
+                    logger.info("        Preparing data matrix A...")
                     primary_event_ids = [
                         self.correlation_file.metadata.events[str(event_index)]
                         for event_index in primary_event_indices
@@ -382,6 +383,7 @@ class Correlator:
                     )
 
                     # secondary
+                    logger.info("        Preparing data matrix B...")
                     secondary_event_ids = [
                         self.correlation_file.metadata.events[str(event_index)]
                         for event_index in secondary_event_indices

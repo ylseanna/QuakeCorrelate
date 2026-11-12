@@ -103,12 +103,20 @@ def extract_traces(
     # slice traces
     logger.info("        Slicing traces to picks...")
 
-    logger.info(f"                 prepick: {prepick:<11.1f} s")
-    logger.info(f"                postpick: {postpick:<11.1f} s")
-    logger.info(f"                 padding: {padding:<11.1f} s")
-    logger.info(
-        f"            total length: {prepick + postpick + 2 * padding:<11.1f} s (expected, may vary by a few samples)"
-    )
+    if not length:
+        logger.info(f"                 prepick: {prepick:<11.1f} s")
+        logger.info(f"                postpick: {postpick:<11.1f} s")
+        logger.info(f"                 padding: {padding:<11.1f} s")
+        logger.info(
+            f"            total length: {prepick + postpick + 2 * padding:<11.1f} s (expected, may vary by a few samples)"
+        )
+    elif length:
+        logger.info(f"                 prepick: {prepick:<11.1f} s")
+        logger.info(f"                  length: {length:<11.1f} s")
+        logger.info(f"                 padding: {padding:<11.1f} s")
+        logger.info(
+            f"            total length: {prepick + (length - prepick) + 2 * padding:<11.1f} s (expected, may vary by a few samples)"
+        )
 
     for event_id, tr in trace_dict.items():
         pick_time = UTCDateTime(pick_dict[event_id]["time"])
