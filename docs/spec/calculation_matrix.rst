@@ -1,6 +1,0 @@
---------------------
-Calculation matrix
---------------------
-
-Cross correlation
-^^^^^^^^^^^^^^^^^

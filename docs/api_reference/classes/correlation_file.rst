@@ -1,11 +1,12 @@
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-quakecorrelate.CorrelationFile
+CorrelationFile
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. autoclass:: quakecorrelate.CorrelationFile
     :members:
     :inherited-members:
     :undoc-members:
+    :member-order: bysource
 
 =========================
 Custom behavior

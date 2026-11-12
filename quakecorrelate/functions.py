@@ -1,10 +1,11 @@
-from obspy import Stream, Catalog
-from typing import Literal, Dict, List
 from pathlib import Path
-import numpy as np
+from typing import Dict, List, Literal, Tuple
 
-from .correlator import Correlator
+import numpy as np
+from obspy import Catalog, Stream
+
 from .correlation_file import CorrelationFile
+from .correlator import Correlator
 
 
 def cross_correlate_seismic_events(
@@ -17,7 +18,9 @@ def cross_correlate_seismic_events(
     write_block_size: int = 1000,
     read_block_size: int = 100,
     stations: List[str] | Literal["all"] = "all",
-    channels: List[str] |  Literal["all"] = "all",
+    channels: List[str] | Literal["all"] = "all",
+    prepick: float = 0.5,
+    postpick: float = 1.5,
     length: float | None = None,
     padding: float = 0,
     shift_len: float = 1,
@@ -25,6 +28,8 @@ def cross_correlate_seismic_events(
     export_to_dtcc: bool | str | Path = False,
     event_id_mapping: Dict[str, str] | Literal["index"] | None = None,
     min_corr_value: float = 0,
+    horizontal_channels_postfix: Tuple[str] = ("E", "N", "1", "2"),
+    vertical_channels_postfix: Tuple[str] = ("Z", "3"),
 ) -> CorrelationFile:
     """Function to calculate cross correlations for seismic events, on a per station, per component basis.
 
@@ -49,8 +54,12 @@ def cross_correlate_seismic_events(
             When provided only these station IDs will be used for the correlation. If unset all station IDs present in the streams will be detected and used.
         channels:
             When provided only these channel IDs will be used for the correlation. If unset all channel IDs present in the streams will be detected and used.
+        prepick:
+            Number of seconds prior to the pick time that should be extracted from the original Trace data when extracting the data from the streams.
+        postpick:
+            Number of seconds after the pick time that should be extracted from the original Trace data when extracting the data from the streams. Overwritten by length if length is set.
         length:
-            Length in seconds of the provided streams that will be used, measured from the start of the stream, plus any padding, if set.
+            Number of seconds after prepick to cut out (i.e. total length of the extracted trace) when extracting the data from the streams, overrides postpick if not None.
         padding:
             Amount of padding in seconds taken from the stream at the start and the end.
         shift_len:
@@ -87,6 +96,8 @@ def cross_correlate_seismic_events(
         overwrite_corr_file=overwrite_corr_file,
         shardsize=write_block_size,
         chunksize=read_block_size,
+        horizontal_channels_postfix=horizontal_channels_postfix,
+        vertical_channels_postfix=vertical_channels_postfix,
     )
 
     correlator.cross_correlate(
@@ -94,6 +105,8 @@ def cross_correlate_seismic_events(
         catalog=catalog,
         stations="all" if not stations else stations,
         channels="all" if not channels else channels,
+        prepick=prepick,
+        postpick=postpick,
         length=length,
         padding=padding,
         shift_len=shift_len,

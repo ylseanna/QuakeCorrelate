@@ -35,6 +35,8 @@ class CorrelationFile:
         overwrite_file: bool = False,
         chunksize: int = 100,
         shardsize: int = 1000,
+        horizontal_channels_postfix: Tuple[str] = ("E", "N", "1", "2"),
+        vertical_channels_postfix: Tuple[str] = ("Z", "3"),
     ):
         # args
         self.filename: str = str(filename)
@@ -68,6 +70,12 @@ class CorrelationFile:
             station_name for station_name, _ in self.root.members()
         ]
         """List of stations IDs listed and available in this group. Does not include unprocessed station IDs."""
+
+        self.horizontal_channels_postfix: Tuple[str] = horizontal_channels_postfix
+        """Tuple of strings representing the final character in a SEED compatible channel ID for automatically recognising the horizontal channel IDs, e.g. HHN, HHE, EH1."""
+
+        self.vertical_channels_postfix: Tuple[str] = vertical_channels_postfix
+        """Tuple of strings representing the final character in a SEED compatible channel ID for automatically recognising the vertical channel IDs, e.g. HHZ, EH3."""
 
     ### add indexing to CorrelationFile object - just refer straight to root
 
